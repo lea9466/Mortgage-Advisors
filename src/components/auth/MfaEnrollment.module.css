@@ -1,0 +1,35 @@
+.steps {
+  --stack-gap: var(--space-2);
+  padding-inline-start: var(--space-6);
+}
+
+.enrollment { --stack-gap: var(--space-4); }
+
+.qr {
+  align-self: center;
+  inline-size: var(--qr-size);
+  block-size: var(--qr-size);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  /* A QR code must stay dark on white to be scannable. */
+  background: var(--color-surface);
+}
+
+.secretLine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.secret {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}

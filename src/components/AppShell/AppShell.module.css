@@ -1,0 +1,73 @@
+/* נייד: הניווט למעלה. מסך רחב: סרגל צד קבוע בצד ימין (תחילת השורה ב-RTL). */
+.shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 100dvh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-block-end: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.organization {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.email {
+  min-inline-size: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
+  color: var(--color-text-muted);
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-inline-size: 0;
+  padding: var(--space-6) var(--container-pad);
+}
+
+@media (min-width: 64em) {
+  .shell { flex-direction: row; }
+
+  .sidebar {
+    position: sticky;
+    inset-block-start: 0;
+    flex: none;
+    gap: var(--space-6);
+    inline-size: var(--sidebar-width);
+    block-size: 100dvh;
+    padding: var(--space-6) var(--space-4);
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--color-border);
+  }
+
+  .account {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-block-start: auto;
+    padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--color-border);
+  }
+
+  .content { padding: var(--space-8) var(--space-12); }
+}

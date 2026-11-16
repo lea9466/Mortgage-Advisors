@@ -1,0 +1,30 @@
+.page {
+  padding-block: var(--space-12);
+  padding-inline: var(--container-pad);
+}
+
+.card {
+  --stack-gap: var(--space-6);
+  inline-size: min(100%, var(--auth-card-width));
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  inline-size: var(--space-12);
+  block-size: var(--space-12);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.badgeIcon { inline-size: var(--space-6); block-size: var(--space-6); }
+
+.header { --stack-gap: var(--space-2); }
+.title { font-size: var(--text-2xl); }
+.description { color: var(--color-text-muted); }

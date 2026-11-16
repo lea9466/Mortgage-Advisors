@@ -1,0 +1,18 @@
+.header { --stack-gap: var(--space-2); }
+.lead { font-size: var(--text-lg); color: var(--color-text-muted); }
+
+.areas { padding: 0; list-style: none; }
+
+.area {
+  --stack-gap: var(--space-2);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.areaTitle { font-size: var(--text-xl); }
+.areaTitle a { text-decoration: none; }
+.areaTitle a:hover { text-decoration: underline; }
+
+.areaNote { color: var(--color-text-muted); }

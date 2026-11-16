@@ -1,0 +1,7 @@
+.line {
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.line a { font-weight: 600; }

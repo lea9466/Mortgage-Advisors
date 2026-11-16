@@ -1,0 +1,2 @@
+.icon { inline-size: var(--icon-size); block-size: var(--icon-size); }
+.icon:dir(rtl) { transform: scaleX(-1); }

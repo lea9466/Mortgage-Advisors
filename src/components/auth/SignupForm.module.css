@@ -1,0 +1,19 @@
+.sent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-primary-soft);
+}
+
+.sentIcon {
+  flex: 0 0 auto;
+  inline-size: var(--space-6);
+  block-size: var(--space-6);
+  color: var(--color-primary);
+}
+
+.note { font-size: var(--text-sm); color: var(--color-text-muted); }
