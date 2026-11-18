@@ -26,7 +26,7 @@ export type ClientFormState = {
   values?: ClientFormValues;
 };
 
-export type RevealState = { idNumber?: string; error?: string };
+export type RevealState = { value?: string; error?: string };
 
 const GENERIC_ERROR = "השמירה נכשלה. נסו שוב בעוד רגע";
 const DUPLICATE_ID = "כבר קיים לקוח עם תעודת הזהות הזו. חפשו אותו ברשימת הלקוחות";
@@ -150,7 +150,7 @@ export async function revealIdNumberAction(clientId: string): Promise<RevealStat
 
   try {
     const idNumber = await revealClientIdNumber(supabase, session.organization.id, id.data);
-    return idNumber ? { idNumber } : { error: "לא הוזן מספר" };
+    return idNumber ? { value: idNumber } : { error: "לא הוזן מספר" };
   } catch (error) {
     console.error("reveal id failed", error instanceof Error ? error.name : "unknown");
     return { error: "לא ניתן להציג כרגע. נסו שוב" };

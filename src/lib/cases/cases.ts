@@ -226,6 +226,13 @@ export async function addBorrower(supabase: SupabaseClient, organizationId: stri
   if (error && error.code !== "23505") throw new Error(`add borrower failed: ${error.code}`);
 }
 
+export class BorrowerHasFinancesError extends Error {
+  constructor() {
+    super("The borrower still has incomes, liabilities or bank accounts in this case");
+    this.name = "BorrowerHasFinancesError";
+  }
+}
+
 export async function removeBorrower(supabase: SupabaseClient, organizationId: string, caseId: string, clientId: string) {
   const { error } = await supabase
     .from("case_borrowers")
@@ -233,5 +240,7 @@ export async function removeBorrower(supabase: SupabaseClient, organizationId: s
     .eq("case_id", caseId)
     .eq("client_id", clientId)
     .eq("organization_id", organizationId);
+  // 23503: financial rows still point at this borrower in this case.
+  if (error?.code === "23503") throw new BorrowerHasFinancesError();
   if (error) throw new Error(`remove borrower failed: ${error.code}`);
 }

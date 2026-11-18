@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FolderPlus, Pencil } from "lucide-react";
-import { RevealIdNumber } from "@/components/clients/RevealIdNumber";
+import { RevealSecret } from "@/components/clients/RevealSecret";
+import { revealIdNumberAction } from "../actions";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { requireSession } from "@/lib/auth/session";
@@ -44,7 +45,7 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
           <DetailsSection title="פרטים אישיים">
             <Row label="תעודת זהות">
               {client.id_number_last4 ? (
-                <RevealIdNumber clientId={client.id} masked={maskedIdNumber(client.id_number_last4)} />
+                <RevealSecret masked={maskedIdNumber(client.id_number_last4)} reveal={revealIdNumberAction.bind(null, client.id)} />
               ) : null}
             </Row>
             <Row label="תאריך הנפקה">{formatDate(client.id_issue_date) || null}</Row>

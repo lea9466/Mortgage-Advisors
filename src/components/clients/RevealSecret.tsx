@@ -1,16 +1,20 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useTransition } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { revealIdNumberAction } from "@/app/(app)/clients/actions";
-import styles from "./RevealIdNumber.module.css";
+import type { RevealState } from "@/app/(app)/clients/actions";
+import styles from "./RevealSecret.module.css";
 
 const HIDE_AFTER_MS = 60_000;
 
-type RevealIdNumberProps = { clientId: string; masked: string };
+type RevealSecretProps = {
+  masked: string;
+  /** A server action bound to the record; it logs the reveal and returns the full value. */
+  reveal: () => Promise<RevealState>;
+};
 
-/** Masked ID number with a "show" button. Each reveal is logged on the server and hides again after a minute. */
-export function RevealIdNumber({ clientId, masked }: RevealIdNumberProps) {
+/** A masked sensitive number (ID, bank account) with a "show" button. Hides again after a minute. */
+export function RevealSecret({ masked, reveal }: RevealSecretProps) {
   const [shown, setShown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -21,11 +25,11 @@ export function RevealIdNumber({ clientId, masked }: RevealIdNumberProps) {
     return () => clearTimeout(timer);
   }, [shown]);
 
-  function reveal() {
+  function onReveal() {
     setError(null);
     startTransition(async () => {
-      const result = await revealIdNumberAction(clientId);
-      if (result.idNumber) setShown(result.idNumber);
+      const result = await reveal();
+      if (result.value) setShown(result.value);
       else setError(result.error ?? "לא ניתן להציג");
     });
   }
@@ -36,7 +40,7 @@ export function RevealIdNumber({ clientId, masked }: RevealIdNumberProps) {
         {shown ?? masked}
       </span>
       {shown === null ? (
-        <button type="button" className={styles.toggle} onClick={reveal} disabled={isPending}>
+        <button type="button" className={styles.toggle} onClick={onReveal} disabled={isPending}>
           <Eye aria-hidden="true" className={styles.icon} />
           {isPending ? "רגע..." : "הצגה"}
         </button>

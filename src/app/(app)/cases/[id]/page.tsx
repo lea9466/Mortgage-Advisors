@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BorrowersPanel } from "@/components/cases/BorrowersPanel";
 import { CaseLog } from "@/components/cases/CaseLog";
+import { BankAccountPanel, IncomePanel, LiabilityPanel } from "@/components/cases/finance/FinancePanels";
 import { CaseStats } from "@/components/cases/CaseStats";
 import { CASE_TABS, CaseTabs, type CaseTabId } from "@/components/cases/CaseTabs";
 import { InsightBox } from "@/components/cases/InsightBox";
@@ -11,6 +12,7 @@ import { StageForm } from "@/components/cases/StageForm";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { requireSession } from "@/lib/auth/session";
 import { caseTitle, getCase, shownPropertyValue, type CaseRecord } from "@/lib/cases/cases";
+import { getCaseFinances, sumBy } from "@/lib/cases/finances";
 import { listLog } from "@/lib/cases/log";
 import { formatAmountInput } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -24,12 +26,11 @@ const TAB_IDS = CASE_TABS.map((tab) => tab.id) as [CaseTabId, ...CaseTabId[]];
 const searchSchema = z.object({
   tab: z.enum(TAB_IDS).catch("property").default("property"),
   saved: z.literal("1").optional().catch(undefined),
+  edit: z.uuid().optional().catch(undefined),
+  notice: z.literal("has-finances").optional().catch(undefined),
 });
 
 const LATER: Partial<Record<CaseTabId, { title: string; text: string }>> = {
-  income: { title: "הכנסות", text: "ייבנה בשלב 3. לכל לווה כמה מקורות הכנסה: שכיר, עצמאי, אברך כולל, קצבה ואחר." },
-  debts: { title: "התחייבויות והלוואות", text: "ייבנה בשלב 3. לכל לווה: סוג, גוף מלווה, יתרה, החזר חודשי ותקופה." },
-  bank: { title: 'חשבונות עו"ש', text: "ייבנה בשלב 3. מספרי החשבון יוצפנו ויוסתרו כמו תעודת זהות." },
   documents: { title: "מסמכים ומעקב מסמכים", text: "ייבנה בשלב 4, כולל הקישור ללקוח להעלאת מסמכים." },
   messages: { title: "הודעות ללקוח", text: "ייבנה בשלב 5. בהתחלה: פתיחת WhatsApp עם הודעה מוכנה." },
 };
@@ -45,16 +46,16 @@ export default async function CasePage({
   const id = z.uuid().safeParse((await params).id);
   if (!id.success) notFound();
   const rawSearch = await searchParams;
-  const { tab, saved } = searchSchema.parse(rawSearch);
+  const { tab, saved, edit, notice } = searchSchema.parse(rawSearch);
   const logFilter = logSearchSchema.parse(rawSearch);
 
   const supabase = await createClient();
   const record = await getCase(supabase, session.organization.id, id.data);
   if (!record) notFound();
-  const logEntries = await listLog(supabase, session.organization.id, record.id, {
-    q: logFilter.logq,
-    from: logFilter.logfrom,
-  });
+  const [logEntries, finances] = await Promise.all([
+    listLog(supabase, session.organization.id, record.id, { q: logFilter.logq, from: logFilter.logfrom }),
+    getCaseFinances(supabase, session.organization.id, record.id),
+  ]);
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
   const later = LATER[tab];
@@ -72,13 +73,27 @@ export default async function CasePage({
         propertyValue={shownPropertyValue(record)}
         requestedAmount={record.requested_amount}
         isPurchase={record.purpose === "purchase"}
+        incomes={{ total: sumBy(finances.incomes, (row) => row.monthly_amount), count: finances.incomes.length }}
+        liabilities={{ total: sumBy(finances.liabilities, (row) => row.monthly_payment), count: finances.liabilities.length }}
+        borrowerCount={borrowers.length}
       />
 
       <div className={styles.work}>
         <section className={styles.panel} aria-label="אזור עבודה">
           <CaseTabs caseId={record.id} current={tab} />
           <div className={styles.tabBody}>
-            {tab === "personal" && <BorrowersPanel caseId={record.id} borrowers={borrowers} />}
+            {tab === "personal" && (
+              <BorrowersPanel caseId={record.id} borrowers={borrowers} hasFinancesNotice={notice === "has-finances"} />
+            )}
+            {tab === "income" && (
+              <IncomePanel caseId={record.id} borrowers={borrowers} rows={finances.incomes} editId={edit} />
+            )}
+            {tab === "debts" && (
+              <LiabilityPanel caseId={record.id} borrowers={borrowers} rows={finances.liabilities} editId={edit} />
+            )}
+            {tab === "bank" && (
+              <BankAccountPanel caseId={record.id} borrowers={borrowers} rows={finances.accounts} editId={edit} />
+            )}
             {tab === "property" && (
               <PropertyForm
                 action={updateCaseDetailsAction.bind(null, record.id)}

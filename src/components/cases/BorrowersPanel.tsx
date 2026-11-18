@@ -2,22 +2,31 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { removeBorrowerAction } from "@/app/(app)/cases/actions";
-import { RevealIdNumber } from "@/components/clients/RevealIdNumber";
+import { revealIdNumberAction } from "@/app/(app)/clients/actions";
+import { RevealSecret } from "@/components/clients/RevealSecret";
 import { ButtonLink } from "@/components/ui/Button";
+import { FormMessage } from "@/components/ui/FormMessage";
 import type { CaseBorrower } from "@/lib/cases/cases";
 import { ageFromBirthDate, formatPhone, maskedIdNumber } from "@/lib/format";
 import { MARITAL_STATUS_LABELS } from "@/lib/validation/client";
 import styles from "./BorrowersPanel.module.css";
 
-type BorrowersPanelProps = { caseId: string; borrowers: CaseBorrower[] };
+type BorrowersPanelProps = { caseId: string; borrowers: CaseBorrower[]; hasFinancesNotice?: boolean };
 
 /** The borrowers of a case, read from their client cards. */
-export function BorrowersPanel({ caseId, borrowers }: BorrowersPanelProps) {
+export function BorrowersPanel({ caseId, borrowers, hasFinancesNotice = false }: BorrowersPanelProps) {
   const canRemove = borrowers.length > 1;
   const year = new Date().getFullYear();
 
   return (
     <div className={styles.panel}>
+      <FormMessage
+        message={
+          hasFinancesNotice
+            ? 'אי אפשר להסיר את הלווה, כי רשומות על שמו בתיק הכנסות, התחייבויות או חשבונות עו"ש. מחקו או העבירו אותן ללווה אחר, ואז הסירו.'
+            : undefined
+        }
+      />
       <p className={styles.note}>הפרטים נלקחים מכרטיס הלקוח. כדי לשנות אותם, פתחו את הכרטיס.</p>
       <ul className={styles.cards}>
         {borrowers.map((borrower) => {
@@ -38,7 +47,7 @@ export function BorrowersPanel({ caseId, borrowers }: BorrowersPanelProps) {
               <dl className={styles.list}>
                 <Item label='ת"ז'>
                   {borrower.id_number_last4 ? (
-                    <RevealIdNumber clientId={borrower.id} masked={maskedIdNumber(borrower.id_number_last4)} />
+                    <RevealSecret masked={maskedIdNumber(borrower.id_number_last4)} reveal={revealIdNumberAction.bind(null, borrower.id)} />
                   ) : null}
                 </Item>
                 <Item label="גיל">{age === null ? null : String(age)}</Item>

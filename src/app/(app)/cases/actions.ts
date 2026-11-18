@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { requireSession, type SessionContext } from "@/lib/auth/session";
 import {
   addBorrower,
+  BorrowerHasFinancesError,
   getCase,
   openCase,
   removeBorrower,
@@ -166,7 +167,12 @@ export async function removeBorrowerAction(caseId: string, formData: FormData): 
   const record = await getCase(supabase, session.organization.id, id.data);
   // A case keeps at least one borrower; the last one cannot be removed.
   if (record && record.case_borrowers.length > 1) {
-    await removeBorrower(supabase, session.organization.id, id.data, clientId.data);
+    try {
+      await removeBorrower(supabase, session.organization.id, id.data, clientId.data);
+    } catch (error) {
+      if (error instanceof BorrowerHasFinancesError) redirect(`/cases/${id.data}?tab=personal&notice=has-finances`);
+      throw error;
+    }
     await audit(session, "case.remove_borrower", id.data, { clientId: clientId.data });
     const removed = record.case_borrowers.find((link) => link.clients.id === clientId.data)?.clients;
     if (removed) {

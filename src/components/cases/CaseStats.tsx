@@ -1,14 +1,19 @@
 import { formatShekels } from "@/lib/format";
 import styles from "./CaseStats.module.css";
 
+type Total = { total: number; count: number };
+
 type CaseStatsProps = {
   propertyValue: number | null;
   requestedAmount: number | null;
   isPurchase: boolean;
+  incomes: Total;
+  liabilities: Total;
+  borrowerCount: number;
 };
 
 /** The four numbers at the top of every case, in the order the adviser chose. */
-export function CaseStats({ propertyValue, requestedAmount, isPurchase }: CaseStatsProps) {
+export function CaseStats({ propertyValue, requestedAmount, isPurchase, incomes, liabilities, borrowerCount }: CaseStatsProps) {
   const financing =
     propertyValue && requestedAmount ? Math.round((requestedAmount / propertyValue) * 100) : null;
 
@@ -20,8 +25,16 @@ export function CaseStats({ propertyValue, requestedAmount, isPurchase }: CaseSt
         value={formatShekels(requestedAmount)}
         note={financing === null ? undefined : `מימון ${financing}% משווי הנכס`}
       />
-      <Stat label="הכנסות חודשיות" value="" note="ייבנה בשלב 3" />
-      <Stat label="התחייבויות חודשיות" value="" note="ייבנה בשלב 3" />
+      <Stat
+        label="הכנסות חודשיות"
+        value={incomes.count > 0 ? formatShekels(incomes.total) : ""}
+        note={incomes.count > 0 ? `${borrowerCount === 1 ? "לווה אחד" : `${borrowerCount} לווים`}, ${incomes.count === 1 ? "מקור אחד" : `${incomes.count} מקורות`}` : "לא הוזנו"}
+      />
+      <Stat
+        label="התחייבויות חודשיות"
+        value={liabilities.count > 0 ? formatShekels(liabilities.total) : ""}
+        note={liabilities.count > 0 ? (liabilities.count === 1 ? "התחייבות אחת" : `${liabilities.count} התחייבויות`) : "לא הוזנו"}
+      />
     </dl>
   );
 }

@@ -81,7 +81,7 @@ export const BANK_LABELS: Record<Bank, string> = {
 const MAX_AMOUNT = 10_000_000_000;
 
 /** "1,780,000", "₪ 1780000" and "1780000" are all 1780000 shekels. */
-const amount = z
+export const amount = z
   .string()
   .trim()
   .transform((value) => value.replace(/[\s,₪]/g, ""))
