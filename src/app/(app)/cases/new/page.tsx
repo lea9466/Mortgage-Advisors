@@ -33,7 +33,16 @@ export default async function NewCasePage({
     const clients = await searchClients(supabase, session.organization.id, search.q);
     return (
       <div className={styles.page}>
-        <PageHeader title="תיק חדש" description="שלב 1 מתוך 2: מי הלווה הראשון? אפשר לצרף לווים נוספים אחר כך." back={{ href: "/cases", label: "תיקי משכנתאות" }} />
+        <PageHeader
+          title="תיק חדש"
+          description="שלב 1 מתוך 2: מי הלווה הראשון? אפשר לצרף לווים נוספים אחר כך."
+          back={{ href: "/cases", label: "תיקי משכנתאות" }}
+          actions={
+            <ButtonLink href="/clients/new?then=open-case" variant="secondary">
+              לקוח חדש
+            </ButtonLink>
+          }
+        />
         <ClientPicker
           action="/cases/new"
           query={search.q}
@@ -45,7 +54,7 @@ export default async function NewCasePage({
           )}
           empty={
             <p>
-              לא נמצאו לקוחות. <Link href="/clients/new">הוספת לקוח חדש</Link>, ואז פתיחת תיק מתוך כרטיס הלקוח.
+              לא נמצאו לקוחות. <Link href="/clients/new?then=open-case">הוספת לקוח חדש</Link>, ומיד אחר כך בוחרים את מטרת התיק.
             </p>
           }
         />

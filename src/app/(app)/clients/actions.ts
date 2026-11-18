@@ -80,6 +80,8 @@ export async function createClientAction(
     });
     redirect(`/cases/${caseId.data}?tab=personal`);
   }
+  // Created while opening a case: continue to choosing its purpose.
+  if (formData.get("then") === "open-case") redirect(`/cases/new?client=${clientId}`);
   redirect(`/clients/${clientId}`);
 }
 
