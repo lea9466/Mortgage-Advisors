@@ -12,6 +12,20 @@ export function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? "" : dateFormatter.format(date);
 }
 
+const timeFormatter = new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
+const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" });
+
+/** A timestamp as "היום 11:40", "אתמול 19:05" or "10.11.2026 · 20:00", in Israel time. */
+export function formatLogTime(value: string, now = new Date()): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = dayKeyFormatter.format(date);
+  const time = timeFormatter.format(date);
+  if (day === dayKeyFormatter.format(now)) return `היום ${time}`;
+  if (day === dayKeyFormatter.format(new Date(now.getTime() - 86_400_000))) return `אתמול ${time}`;
+  return `${dateFormatter.format(date)} · ${time}`;
+}
+
 /** Full years between a birth date and today. */
 export function ageFromBirthDate(birthDate: string | null | undefined, now = new Date()): number | null {
   if (!birthDate) return null;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BorrowersPanel } from "@/components/cases/BorrowersPanel";
+import { CaseLog } from "@/components/cases/CaseLog";
 import { CaseStats } from "@/components/cases/CaseStats";
 import { CASE_TABS, CaseTabs, type CaseTabId } from "@/components/cases/CaseTabs";
 import { InsightBox } from "@/components/cases/InsightBox";
@@ -10,10 +11,11 @@ import { StageForm } from "@/components/cases/StageForm";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { requireSession } from "@/lib/auth/session";
 import { caseTitle, getCase, shownPropertyValue, type CaseRecord } from "@/lib/cases/cases";
+import { listLog } from "@/lib/cases/log";
 import { formatAmountInput } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { formatCaseNumber, type CaseDetailsFormValues } from "@/lib/validation/case";
-import { createInsightAction, updateCaseDetailsAction } from "../actions";
+import { formatCaseNumber, logSearchSchema, type CaseDetailsFormValues } from "@/lib/validation/case";
+import { createInsightAction, createLogEntryAction, updateCaseDetailsAction } from "../actions";
 import styles from "./case.module.css";
 
 export const metadata: Metadata = { title: "תיק משכנתא" };
@@ -42,11 +44,17 @@ export default async function CasePage({
   const session = await requireSession();
   const id = z.uuid().safeParse((await params).id);
   if (!id.success) notFound();
-  const { tab, saved } = searchSchema.parse(await searchParams);
+  const rawSearch = await searchParams;
+  const { tab, saved } = searchSchema.parse(rawSearch);
+  const logFilter = logSearchSchema.parse(rawSearch);
 
   const supabase = await createClient();
   const record = await getCase(supabase, session.organization.id, id.data);
   if (!record) notFound();
+  const logEntries = await listLog(supabase, session.organization.id, record.id, {
+    q: logFilter.logq,
+    from: logFilter.logfrom,
+  });
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
   const later = LATER[tab];
@@ -88,14 +96,13 @@ export default async function CasePage({
           </div>
         </section>
 
-        <aside className={styles.log} aria-labelledby="log-title">
-          <h2 id="log-title" className={styles.logTitle}>
-            תיעוד וטיפול
-          </h2>
-          <p className={styles.muted}>
-            כאן יופיעו הערות, שיחות עם לקוחות ובנקים, ופעולות שנעשו בתיק, מהחדש לישן. ייבנה בשלב 5.
-          </p>
-        </aside>
+        <CaseLog
+          caseId={record.id}
+          tab={tab}
+          entries={logEntries}
+          filter={logFilter}
+          action={createLogEntryAction.bind(null, record.id)}
+        />
       </div>
 
       {/* At the bottom, so it does not interrupt the work on the case. */}

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
 import { requireSession } from "@/lib/auth/session";
 import { addBorrower } from "@/lib/cases/cases";
+import { logSystemEvent } from "@/lib/cases/log";
 import {
   createClientRecord,
   DuplicateIdNumberError,
@@ -78,6 +79,12 @@ export async function createClientAction(
       entityId: caseId.data,
       metadata: { clientId },
     });
+    await logSystemEvent(
+      supabase,
+      { organizationId: session.organization.id, userId: session.user.id },
+      caseId.data,
+      `${parsed.data.firstName} ${parsed.data.lastName} נוסף/ה כלקוח חדש וצורף/ה לתיק`,
+    );
     redirect(`/cases/${caseId.data}?tab=personal`);
   }
   // Created while opening a case: continue to choosing its purpose.

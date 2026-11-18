@@ -4,9 +4,11 @@ import {
   caseListSearchSchema,
   formatCaseNumber,
   insightSchema,
+  logEntrySchema,
   parseCaseNumber,
   readCaseDetailsForm,
 } from "@/lib/validation/case";
+import { formatLogTime } from "@/lib/format";
 
 function form(entries: [string, string][]): FormData {
   const data = new FormData();
@@ -52,6 +54,21 @@ describe("case list filter", () => {
     expect(caseListSearchSchema.parse({}).stage).toBe("active");
     expect(caseListSearchSchema.parse({ stage: "signatures" }).stage).toBe("signatures");
     expect(caseListSearchSchema.parse({ stage: "hacked" }).stage).toBe("active");
+  });
+});
+
+describe("case log", () => {
+  it("accepts the adviser's kinds but never 'system', which only the app writes", () => {
+    expect(logEntrySchema.safeParse({ kind: "bank_call", body: "מזרחי ביקשו אישור על המלגה" }).success).toBe(true);
+    expect(logEntrySchema.safeParse({ kind: "system", body: "זיוף" }).success).toBe(false);
+    expect(logEntrySchema.safeParse({ kind: "note", body: "   " }).success).toBe(false);
+  });
+
+  it("shows today and yesterday by name, in Israel time", () => {
+    const now = new Date("2026-11-19T10:00:00Z");
+    expect(formatLogTime("2026-11-19T09:40:00Z", now)).toBe("היום 11:40");
+    expect(formatLogTime("2026-11-18T17:05:00Z", now)).toBe("אתמול 19:05");
+    expect(formatLogTime("2026-11-10T18:00:00Z", now)).toBe("10.11.2026 · 20:00");
   });
 });
 

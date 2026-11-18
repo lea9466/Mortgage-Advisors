@@ -144,6 +144,31 @@ export const insightSearchSchema = z.object({
   bank: z.enum(BANKS).optional().catch(undefined),
 });
 
+/** Kinds the adviser writes. 'system' entries are written by the app only. */
+export const LOG_KINDS = ["note", "client_call", "bank_call", "meeting", "action", "important"] as const;
+export type LogKind = (typeof LOG_KINDS)[number];
+export type AnyLogKind = LogKind | "system";
+
+export const LOG_KIND_LABELS: Record<AnyLogKind, string> = {
+  note: "הערה",
+  client_call: "שיחה עם לקוח",
+  bank_call: "שיחה עם בנק",
+  meeting: "פגישה",
+  action: "פעולה שבוצעה",
+  important: "חשוב להמשך",
+  system: "אוטומטי",
+};
+
+export const logEntrySchema = z.object({
+  kind: z.enum(LOG_KINDS, "יש לבחור סוג"),
+  body: z.string().trim().min(1, "מה לרשום?").max(4000, "ארוך מדי"),
+});
+
+export const logSearchSchema = z.object({
+  logq: z.string().trim().max(60).optional().catch(undefined),
+  logfrom: z.iso.date().optional().catch(undefined),
+});
+
 /** 2026 and 7 as "2026-007". */
 export function formatCaseNumber(year: number, seq: number): string {
   return `${year}-${String(seq).padStart(3, "0")}`;

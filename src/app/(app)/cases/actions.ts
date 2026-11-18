@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
@@ -13,15 +14,25 @@ import {
   updateCaseStage,
 } from "@/lib/cases/cases";
 import { createInsight, deleteInsight } from "@/lib/cases/insights";
+import { addLogEntry, logSystemEvent } from "@/lib/cases/log";
+import { getClientRecord } from "@/lib/clients/clients";
+import { formatShekels } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import {
+  APARTMENT_CLASS_LABELS,
+  CASE_STAGE_LABELS,
   caseDetailsSchema,
+  HAND_LABELS,
   insightSchema,
+  logEntrySchema,
   openCaseSchema,
+  PURPOSE_LABELS,
   readCaseDetailsForm,
   stageSchema,
   type CaseDetailsFormValues,
+  type CaseDetailsInput,
 } from "@/lib/validation/case";
+import type { CaseRecord } from "@/lib/cases/cases";
 
 export type CaseDetailsState = {
   error?: string;
@@ -29,9 +40,34 @@ export type CaseDetailsState = {
   values?: CaseDetailsFormValues;
 };
 export type InsightState = { error?: string; fieldError?: string; savedAt?: number };
+export type LogState = { error?: string; savedAt?: number };
 
 const GENERIC_ERROR = "השמירה נכשלה. נסו שוב בעוד רגע";
 const uuid = z.uuid();
+
+function context(session: SessionContext) {
+  return { organizationId: session.organization.id, userId: session.user.id };
+}
+
+/** "מחיר החוזה עודכן ל-₪1,780,000 · הון עצמי עודכן ל-₪630,000", or null when nothing changed. */
+function describeDetailChanges(before: CaseRecord, after: CaseDetailsInput): string | null {
+  const isPurchase = before.purpose === "purchase";
+  const amounts: [string, number | null, number | undefined, boolean][] = [
+    ["משכנתא מבוקשת", before.requested_amount, after.requestedAmount, true],
+    ["שווי הנכס", before.property_value, after.propertyValue, !isPurchase],
+    ["מחיר החוזה", before.contract_price, after.contractPrice, isPurchase],
+    ["הון עצמי", before.equity, after.equity, isPurchase],
+  ];
+  const changes = amounts
+    .filter(([, old, next, applies]) => applies && (old ?? null) !== (next ?? null))
+    .map(([label, , next]) => (next === undefined ? `${label} נמחק` : `${label} עודכן ל-${formatShekels(next)}`));
+
+  if (isPurchase && (before.hand ?? undefined) !== after.hand && after.hand) changes.push(HAND_LABELS[after.hand]);
+  if (isPurchase && (before.apartment_class ?? undefined) !== after.apartmentClass && after.apartmentClass) {
+    changes.push(APARTMENT_CLASS_LABELS[after.apartmentClass]);
+  }
+  return changes.length > 0 ? changes.join(" · ") : null;
+}
 
 async function audit(session: SessionContext, action: string, entityId: string, metadata?: Record<string, string>) {
   const supabase = await createClient();
@@ -53,6 +89,7 @@ export async function openCaseAction(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const caseId = await openCase(supabase, parsed.data.clientId, parsed.data.purpose);
   await audit(session, "case.open", caseId, { purpose: parsed.data.purpose });
+  await logSystemEvent(supabase, context(session), caseId, `התיק נפתח · ${PURPOSE_LABELS[parsed.data.purpose]}`);
   redirect(`/cases/${caseId}?tab=property`);
 }
 
@@ -79,6 +116,8 @@ export async function updateCaseDetailsAction(
     return { error: GENERIC_ERROR, values };
   }
   await audit(session, "case.update_details", id.data);
+  const changes = describeDetailChanges(record, parsed.data);
+  if (changes) await logSystemEvent(supabase, context(session), id.data, changes);
   redirect(`/cases/${id.data}?tab=property&saved=1`);
 }
 
@@ -90,8 +129,12 @@ export async function changeStageAction(caseId: string, formData: FormData): Pro
   if (!stage.success) redirect(`/cases/${id.data}`);
 
   const supabase = await createClient();
-  await updateCaseStage(supabase, session.organization.id, id.data, stage.data);
-  await audit(session, "case.change_stage", id.data, { stage: stage.data });
+  const record = await getCase(supabase, session.organization.id, id.data);
+  if (record && record.stage !== stage.data) {
+    await updateCaseStage(supabase, session.organization.id, id.data, stage.data);
+    await audit(session, "case.change_stage", id.data, { stage: stage.data });
+    await logSystemEvent(supabase, context(session), id.data, `עבר לשלב ${CASE_STAGE_LABELS[stage.data]}`);
+  }
   redirect(`/cases/${id.data}`);
 }
 
@@ -105,6 +148,10 @@ export async function addBorrowerAction(caseId: string, formData: FormData): Pro
   const supabase = await createClient();
   await addBorrower(supabase, session.organization.id, id.data, clientId.data);
   await audit(session, "case.add_borrower", id.data, { clientId: clientId.data });
+  const client = await getClientRecord(supabase, session.organization.id, clientId.data);
+  if (client) {
+    await logSystemEvent(supabase, context(session), id.data, `${client.first_name} ${client.last_name} צורף/ה לתיק`);
+  }
   redirect(`/cases/${id.data}?tab=personal`);
 }
 
@@ -121,8 +168,32 @@ export async function removeBorrowerAction(caseId: string, formData: FormData): 
   if (record && record.case_borrowers.length > 1) {
     await removeBorrower(supabase, session.organization.id, id.data, clientId.data);
     await audit(session, "case.remove_borrower", id.data, { clientId: clientId.data });
+    const removed = record.case_borrowers.find((link) => link.clients.id === clientId.data)?.clients;
+    if (removed) {
+      await logSystemEvent(supabase, context(session), id.data, `${removed.first_name} ${removed.last_name} הוסר/ה מהתיק`);
+    }
   }
   redirect(`/cases/${id.data}?tab=personal`);
+}
+
+/** Adds a note, call or meeting to the case log. The form clears and the log refreshes. */
+export async function createLogEntryAction(caseId: string, _prev: LogState, formData: FormData): Promise<LogState> {
+  const session = await requireSession();
+  const id = uuid.safeParse(caseId);
+  if (!id.success) return { error: GENERIC_ERROR };
+
+  const parsed = logEntrySchema.safeParse({ kind: formData.get("kind"), body: formData.get("body") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC_ERROR };
+
+  const supabase = await createClient();
+  try {
+    await addLogEntry(supabase, context(session), id.data, parsed.data);
+  } catch (error) {
+    console.error("log entry failed", error instanceof Error ? error.message : "unknown");
+    return { error: GENERIC_ERROR };
+  }
+  refresh();
+  return { savedAt: Date.now() };
 }
 
 /** Saves a lesson learned in a case to the insights centre. The form clears on success. */
