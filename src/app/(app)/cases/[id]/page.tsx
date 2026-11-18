@@ -66,8 +66,6 @@ export default async function CasePage({
         isPurchase={record.purpose === "purchase"}
       />
 
-      <InsightBox action={createInsightAction.bind(null, record.id)} />
-
       <div className={styles.work}>
         <section className={styles.panel} aria-label="אזור עבודה">
           <CaseTabs caseId={record.id} current={tab} />
@@ -99,6 +97,9 @@ export default async function CasePage({
           </p>
         </aside>
       </div>
+
+      {/* At the bottom, so it does not interrupt the work on the case. */}
+      <InsightBox action={createInsightAction.bind(null, record.id)} />
     </div>
   );
 }
