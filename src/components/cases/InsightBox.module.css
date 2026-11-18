@@ -1,0 +1,37 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+}
+
+.head { display: flex; align-items: center; gap: var(--space-2); }
+.icon { inline-size: var(--icon-size); block-size: var(--icon-size); color: var(--color-accent); }
+.title { font-size: var(--text-lg); color: var(--color-accent); }
+
+.text {
+  inline-size: 100%;
+  min-block-size: 4rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  resize: vertical;
+}
+.text:focus-visible { border-color: var(--color-accent); }
+
+.hint { font-size: var(--text-sm); color: var(--color-text-muted); }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.bankLabel { font-size: var(--text-sm); font-weight: 600; }
+.select {
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.saved { font-size: var(--text-sm); font-weight: 600; color: var(--color-success); }

@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FolderOpen,
   LayoutDashboard,
+  Lightbulb,
   ListChecks,
   UserPlus,
   Users,
@@ -22,6 +23,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   tasks: ListChecks,
   leads: UserPlus,
   calendar: CalendarDays,
+  insights: Lightbulb,
 };
 
 function isCurrent(pathname: string, href: string): boolean {

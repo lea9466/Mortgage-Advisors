@@ -1,0 +1,20 @@
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  padding: var(--space-2) var(--space-4) 0;
+  border-block-end: 1px solid var(--color-border);
+  scrollbar-width: thin;
+}
+
+.tab {
+  flex: none;
+  padding: var(--space-3) var(--space-4);
+  border-block-end: 3px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+.tab:hover { color: var(--color-text); }
+
+.current { font-weight: 600; color: var(--color-primary); border-block-end-color: var(--color-primary); }

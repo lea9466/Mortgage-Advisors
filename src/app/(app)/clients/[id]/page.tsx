@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { FolderPlus, Pencil } from "lucide-react";
 import { RevealIdNumber } from "@/components/clients/RevealIdNumber";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { requireSession } from "@/lib/auth/session";
+import { listClientCases } from "@/lib/cases/cases";
 import { getClientRecord, type ClientRecord } from "@/lib/clients/clients";
+import { CASE_STAGE_LABELS, PURPOSE_LABELS } from "@/lib/validation/case";
 import { ageFromBirthDate, formatDate, formatPhone, maskedIdNumber } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { clientIdSchema, MARITAL_STATUS_LABELS } from "@/lib/validation/client";
@@ -22,6 +25,7 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
   const supabase = await createClient();
   const client = await getClientRecord(supabase, session.organization.id, id.data);
   if (!client) notFound();
+  const cases = await listClientCases(supabase, session.organization.id, client.id);
 
   return (
     <div className={styles.page}>
@@ -64,10 +68,27 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
         </div>
 
         <aside className={styles.cases} aria-labelledby="cases-title">
-          <h2 id="cases-title" className={styles.sectionTitle}>התיקים של הלקוח</h2>
-          <p className={styles.muted}>
-            פתיחת תיק משכנתא ושיוך לקוחות לתיק ייבנו בהמשך שלב 2. כאן יופיעו כל התיקים של הלקוח לאורך השנים.
-          </p>
+          <h2 id="cases-title" className={styles.sectionTitle}>התיקים של {client.first_name}</h2>
+          {cases.length === 0 ? (
+            <p className={styles.muted}>אין עדיין תיקים ללקוח הזה.</p>
+          ) : (
+            <ul className={styles.caseList}>
+              {cases.map((item) => (
+                <li key={item.id}>
+                  <Link href={`/cases/${item.id}`} className={styles.caseLink}>
+                    <span>
+                      {PURPOSE_LABELS[item.purpose]} · {item.case_year}
+                    </span>
+                    <span className={styles.stage}>{CASE_STAGE_LABELS[item.stage]}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <ButtonLink href={`/cases/new?client=${client.id}`} variant="secondary">
+            <FolderPlus aria-hidden="true" className={styles.icon} />
+            פתיחת תיק חדש ללקוח
+          </ButtonLink>
         </aside>
       </div>
       <p className={styles.muted}>עודכן לאחרונה {formatDate(client.updated_at)}</p>

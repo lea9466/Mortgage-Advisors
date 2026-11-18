@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
 import { requireSession } from "@/lib/auth/session";
+import { addBorrower } from "@/lib/cases/cases";
 import {
   createClientRecord,
   DuplicateIdNumberError,
@@ -64,6 +65,21 @@ export async function createClientAction(
     entityType: "client",
     entityId: clientId,
   });
+
+  // Opened from a case: the new client joins it as a borrower.
+  const caseId = clientIdSchema.safeParse(formData.get("caseId"));
+  if (caseId.success) {
+    await addBorrower(supabase, session.organization.id, caseId.data, clientId);
+    await recordAudit(supabase, {
+      organizationId: session.organization.id,
+      actorId: session.user.id,
+      action: "case.add_borrower",
+      entityType: "case",
+      entityId: caseId.data,
+      metadata: { clientId },
+    });
+    redirect(`/cases/${caseId.data}?tab=personal`);
+  }
   redirect(`/clients/${clientId}`);
 }
 

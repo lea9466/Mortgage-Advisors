@@ -23,12 +23,14 @@ type ClientFormProps = {
   cancelHref: string;
   /** Set when editing a client whose ID number is already stored. */
   storedIdNumber?: string;
+  /** Set when the new client should join this case once saved. */
+  caseId?: string;
 };
 
 const MARITAL_OPTIONS = MARITAL_STATUSES.map((value) => ({ value, label: MARITAL_STATUS_LABELS[value] }));
 const initialState: ClientFormState = {};
 
-export function ClientForm({ action, initialValues, submitLabel, cancelHref, storedIdNumber }: ClientFormProps) {
+export function ClientForm({ action, initialValues, submitLabel, cancelHref, storedIdNumber, caseId }: ClientFormProps) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const values = state.values ?? initialValues;
   // After a failed save the fields are rebuilt from what the server sent back,
@@ -37,6 +39,7 @@ export function ClientForm({ action, initialValues, submitLabel, cancelHref, sto
 
   return (
     <form key={formKey} action={formAction} noValidate className={styles.form}>
+      {caseId && <input type="hidden" name="caseId" value={caseId} />}
       <ClientFields values={values} errors={state.fieldErrors ?? {}} storedIdNumber={storedIdNumber} />
       <FormMessage message={state.error} />
       <div className={styles.actions}>

@@ -1,0 +1,62 @@
+.page { display: flex; flex-direction: column; gap: var(--space-6); }
+.icon { inline-size: var(--space-4); block-size: var(--space-4); }
+
+.search { display: flex; flex-wrap: wrap; gap: var(--space-3); max-inline-size: 40rem; }
+.input {
+  flex: 1 1 16rem;
+  min-inline-size: 0;
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.input:focus-visible { border-color: var(--color-primary); }
+
+.filters { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.filter {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.25rem;
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.filter:hover { border-color: var(--color-primary); }
+.filterOn { font-weight: 600; color: var(--color-primary); border-color: transparent; background: var(--color-primary-soft); }
+
+.empty {
+  padding: var(--space-12) var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.empty p { margin-inline: auto; }
+
+.list { display: flex; flex-direction: column; gap: var(--space-4); padding: 0; list-style: none; }
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.body { font-size: var(--text-lg); white-space: pre-line; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--color-text-muted); }
+.bank {
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.deleteForm { margin-inline-start: auto; }
+.delete { padding: 0; border: 0; font-size: var(--text-sm); color: var(--color-text-muted); background: none; text-decoration: underline; }
+.delete:hover { color: var(--color-error); }

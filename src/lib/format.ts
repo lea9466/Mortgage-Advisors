@@ -32,6 +32,18 @@ export function formatPhone(value: string | null | undefined): string {
   return value;
 }
 
+const shekelFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+/** 1780000 as ₪1,780,000. Shown inside dir="ltr" so the sign stays before the digits. */
+export function formatShekels(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : `₪${shekelFormatter.format(value)}`;
+}
+
+/** 1780000 as 1,780,000, for amount inputs. */
+export function formatAmountInput(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : shekelFormatter.format(value);
+}
+
 export function maskedIdNumber(last4: string | null | undefined): string {
   return last4 ? `•••••${last4}` : "";
 }

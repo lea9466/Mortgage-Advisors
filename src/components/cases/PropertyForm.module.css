@@ -1,0 +1,39 @@
+.form { display: flex; flex-direction: column; gap: var(--space-8); }
+
+.fields { display: flex; flex-wrap: wrap; gap: var(--space-6); }
+.fields > * { flex: 1 1 14rem; min-inline-size: 0; }
+
+.choices { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; border: 0; }
+.legend { padding: 0; margin-block-end: var(--space-2); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.chip { position: relative; cursor: pointer; }
+.chip input { position: absolute; opacity: 0; inline-size: 1px; block-size: 1px; }
+.chip span {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+.chip:hover span { border-color: var(--color-primary); }
+.chip input:checked + span { font-weight: 600; color: var(--color-primary); border-color: transparent; background: var(--color-primary-soft); }
+.chip input:focus-visible + span { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+
+.calc {
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+}
+.calc b { color: var(--color-text); }
+.mismatch { font-weight: 600; color: var(--color-accent); }
+
+.note { flex-basis: 100%; font-size: var(--text-sm); color: var(--color-text-muted); }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.saved { font-weight: 600; color: var(--color-success); }

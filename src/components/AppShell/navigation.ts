@@ -5,6 +5,7 @@ export const NAV_ITEMS = [
   { href: "/tasks", label: "משימות", icon: "tasks" },
   { href: "/leads", label: "לידים", icon: "leads" },
   { href: "/calendar", label: "יומן פגישות", icon: "calendar" },
+  { href: "/insights", label: "מרכז התובנות", icon: "insights" },
 ] as const;
 
 export type NavItem = (typeof NAV_ITEMS)[number];
