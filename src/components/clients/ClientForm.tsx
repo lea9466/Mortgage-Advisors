@@ -88,7 +88,13 @@ function ClientFields({ values, errors, storedIdNumber }: ClientFieldsProps) {
       <section className={styles.section} aria-labelledby="section-contact">
         <h2 id="section-contact" className={styles.sectionTitle}>פרטי קשר</h2>
         <div className={styles.fields}>
-          <TextField id="phone" label="טלפון" type="tel" required maxLength={20} autoComplete="off" ltr defaultValue={values.phone} error={error("phone")} />
+          <div className={styles.phoneField}>
+            <TextField id="phone" label="טלפון" type="tel" required maxLength={20} autoComplete="off" ltr defaultValue={values.phone} error={error("phone")} />
+            <label className={styles.check}>
+              <input type="checkbox" name="phoneReceivesSms" defaultChecked={values.phoneReceivesSms ?? false} />
+              מקבל SMS
+            </label>
+          </div>
           <TextField id="phoneAlt" label="טלפון נוסף" type="tel" maxLength={20} autoComplete="off" ltr defaultValue={values.phoneAlt} error={error("phoneAlt")} />
           <TextField id="email" label="אימייל" type="email" maxLength={254} autoComplete="off" ltr defaultValue={values.email} error={error("email")} />
         </div>

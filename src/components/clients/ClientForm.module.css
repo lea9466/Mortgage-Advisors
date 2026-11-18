@@ -17,6 +17,8 @@
 .fields { display: flex; flex-wrap: wrap; gap: var(--space-6); }
 .fields > * { flex: 1 1 15rem; min-inline-size: 0; }
 
+.phoneField { display: flex; flex-direction: column; gap: var(--space-2); }
+
 .checkField { display: flex; flex-direction: column; gap: var(--space-4); justify-content: flex-end; }
 .check {
   display: inline-flex;

@@ -38,6 +38,7 @@ export const clientSchema = z
     idExpiryDate: isoDate.optional(),
     birthDate: isoDate.optional(),
     phone,
+    phoneReceivesSms: z.boolean(),
     phoneAlt: phone.optional(),
     email: z.email("כתובת אימייל לא תקינה").trim().max(254).optional(),
     maritalStatus: z.enum(MARITAL_STATUSES, "יש לבחור מהרשימה").optional(),
@@ -84,6 +85,7 @@ export const CLIENT_TEXT_FIELDS = [
 
 export type ClientTextField = (typeof CLIENT_TEXT_FIELDS)[number];
 export type ClientFormValues = Partial<Record<ClientTextField, string>> & {
+  phoneReceivesSms?: boolean;
   hasOtherCitizenship?: boolean;
   childrenAges?: string[];
 };
@@ -95,6 +97,7 @@ export function readClientForm(formData: FormData): ClientFormValues {
     const raw = formData.get(field);
     if (typeof raw === "string" && raw.trim() !== "") values[field] = raw;
   }
+  values.phoneReceivesSms = formData.get("phoneReceivesSms") === "on";
   values.hasOtherCitizenship = formData.get("hasOtherCitizenship") === "on";
   values.childrenAges = formData
     .getAll("childAge")

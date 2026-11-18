@@ -10,7 +10,7 @@ import { canonicalIsraeliId, isValidIsraeliId } from "@/lib/validation/israeliId
 const LIST_LIMIT = 50;
 
 const CLIENT_COLUMNS =
-  "id, first_name, last_name, id_number_last4, id_issue_date, id_expiry_date, birth_date, phone, phone_alt, email, marital_status, has_other_citizenship, other_citizenship, children_birth_years, city, street, house_number, created_at, updated_at";
+  "id, first_name, last_name, id_number_last4, id_issue_date, id_expiry_date, birth_date, phone, phone_receives_sms, phone_alt, email, marital_status, has_other_citizenship, other_citizenship, children_birth_years, city, street, house_number, created_at, updated_at";
 
 const LIST_COLUMNS = "id, first_name, last_name, id_number_last4, birth_date, phone, city";
 
@@ -25,6 +25,7 @@ const clientRowSchema = z.object({
   id_expiry_date: nullableText,
   birth_date: nullableText,
   phone: nullableText,
+  phone_receives_sms: z.boolean(),
   phone_alt: nullableText,
   email: nullableText,
   marital_status: z.enum(MARITAL_STATUSES).nullable(),
@@ -81,6 +82,7 @@ function toColumns(input: ClientInput, now: Date) {
     id_expiry_date: input.idExpiryDate ?? null,
     birth_date: input.birthDate ?? null,
     phone: input.phone,
+    phone_receives_sms: input.phoneReceivesSms,
     phone_alt: input.phoneAlt ?? null,
     email: input.email ?? null,
     marital_status: input.maritalStatus ?? null,

@@ -47,6 +47,13 @@ describe("client form", () => {
     expect(parsed.data.childrenAges).toEqual([]);
   });
 
+  it("reads the receives-SMS box, off unless ticked", () => {
+    const off = clientSchema.safeParse(readClientForm(form(base)));
+    const on = clientSchema.safeParse(readClientForm(form([...base, ["phoneReceivesSms", "on"]])));
+    expect(off.success && off.data.phoneReceivesSms).toBe(false);
+    expect(on.success && on.data.phoneReceivesSms).toBe(true);
+  });
+
   it("stores the ID number in canonical form", () => {
     const parsed = clientSchema.safeParse(readClientForm(form([...base, ["idNumber", "00018"]])));
     expect(parsed.success && parsed.data.idNumber).toBe("000000018");

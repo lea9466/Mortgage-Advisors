@@ -50,6 +50,7 @@ function toFormValues(client: ClientRecord): ClientFormValues {
     idExpiryDate: optional(client.id_expiry_date),
     birthDate: optional(client.birth_date),
     phone: optional(client.phone),
+    phoneReceivesSms: client.phone_receives_sms,
     phoneAlt: optional(client.phone_alt),
     email: optional(client.email),
     maritalStatus: optional(client.marital_status),

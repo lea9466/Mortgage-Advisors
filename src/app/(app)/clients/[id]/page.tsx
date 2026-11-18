@@ -43,11 +43,13 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
                 <RevealIdNumber clientId={client.id} masked={maskedIdNumber(client.id_number_last4)} />
               ) : null}
             </Row>
-            <Row label="הנפקה / פקיעה">{issueAndExpiry(client)}</Row>
+            <Row label="תאריך הנפקה">{formatDate(client.id_issue_date) || null}</Row>
+            <Row label="תאריך פקיעה">{formatDate(client.id_expiry_date) || null}</Row>
             <Row label="תאריך לידה">{birthLine(client)}</Row>
           </DetailsSection>
           <DetailsSection title="פרטי קשר">
             <Row label="טלפון"><span dir="ltr">{formatPhone(client.phone)}</span></Row>
+            <Row label="מקבל SMS">{client.phone_receives_sms ? "כן" : "לא"}</Row>
             <Row label="טלפון נוסף"><span dir="ltr">{formatPhone(client.phone_alt)}</span></Row>
             <Row label="אימייל"><span dir="ltr">{client.email}</span></Row>
           </DetailsSection>
@@ -90,11 +92,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <dd className={styles.value}>{empty ? <span className={styles.muted}>לא הוזן</span> : children}</dd>
     </div>
   );
-}
-
-function issueAndExpiry(client: ClientRecord): string | null {
-  if (!client.id_issue_date && !client.id_expiry_date) return null;
-  return `${formatDate(client.id_issue_date) || "?"} / ${formatDate(client.id_expiry_date) || "?"}`;
 }
 
 function birthLine(client: ClientRecord): string | null {
