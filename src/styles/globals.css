@@ -62,3 +62,9 @@ a { color: var(--color-primary); text-underline-offset: 0.2em; }
 .center { display: flex; align-items: center; justify-content: center; }
 .card-row { display: flex; flex-wrap: wrap; gap: var(--space-6); }
 .card-row > * { flex: 1 1 16rem; min-inline-size: 0; }
+
+/* Printed pages (the bank report) are black on white, without screen-only parts. */
+@media print {
+  body { color: var(--print-ink); background: var(--print-paper); }
+  .skip-link { display: none; }
+}

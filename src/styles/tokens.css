@@ -17,6 +17,13 @@
   --color-error-soft: #f9e1de;
   --color-focus: #1d4ed8;
 
+  /* הדפסה – מסמך לבנק תמיד שחור על לבן */
+  --print-ink: #000000;
+  --print-paper: #ffffff;
+  --print-line: #999999;
+  --print-shade: #f0f0f0;
+  --print-total: #e4f1ee;
+
   /* רווחים – סקאלה של 4px */
   --space-1: 0.25rem;
   --space-2: 0.5rem;

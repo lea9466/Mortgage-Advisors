@@ -1,0 +1,26 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--container-pad) var(--space-16);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  inline-size: min(100%, 210mm);
+  margin-inline: auto;
+}
+.back { display: inline-flex; align-items: center; gap: var(--space-1); font-weight: 600; text-decoration: none; }
+.hint { flex: 1 1 16rem; font-size: var(--text-sm); color: var(--color-text-muted); }
+.icon { inline-size: var(--space-4); block-size: var(--space-4); }
+
+.error { padding: var(--space-8); text-align: center; }
+
+@media print {
+  .page { padding: 0; }
+  .toolbar { display: none; }
+}

@@ -10,6 +10,8 @@ import { InsightBox } from "@/components/cases/InsightBox";
 import { PropertyForm } from "@/components/cases/PropertyForm";
 import { StageForm } from "@/components/cases/StageForm";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
+import { ButtonLink } from "@/components/ui/Button";
+import { FileText } from "lucide-react";
 import { requireSession } from "@/lib/auth/session";
 import { caseTitle, getCase, shownPropertyValue, type CaseRecord } from "@/lib/cases/cases";
 import { findPreviousIncomes, getCaseFinances, sumBy } from "@/lib/cases/finances";
@@ -70,7 +72,16 @@ export default async function CasePage({
         title={caseTitle(record.purpose, borrowers)}
         description={`תיק ${formatCaseNumber(record.case_year, record.case_seq)}`}
         back={{ href: "/cases", label: "תיקי משכנתאות" }}
-        actions={<StageForm caseId={record.id} stage={record.stage} />}
+        actions={
+          <>
+            <StageForm caseId={record.id} stage={record.stage} />
+            {/* No prefetch: opening the report is recorded in the audit log, so it must load only on a click. */}
+            <ButtonLink href={`/cases/${record.id}/report`} prefetch={false}>
+              <FileText aria-hidden="true" className={styles.icon} />
+              דוח לבנק
+            </ButtonLink>
+          </>
+        }
       />
 
       <CaseStats

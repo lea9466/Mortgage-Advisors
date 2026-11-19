@@ -11,12 +11,19 @@ export function Button({ variant = "primary", className, type = "button", ...res
   return <button type={type} className={clsx(styles.button, styles[variant], className)} {...rest} />;
 }
 
-type ButtonLinkProps = { href: string; variant?: Variant; className?: string; children: ReactNode };
+type ButtonLinkProps = {
+  href: string;
+  variant?: Variant;
+  className?: string;
+  /** Turn off for pages that must only load on a real click, e.g. ones written to the audit log. */
+  prefetch?: boolean;
+  children: ReactNode;
+};
 
 /** A link that looks like a button, for navigation actions such as "new client". */
-export function ButtonLink({ href, variant = "primary", className, children }: ButtonLinkProps) {
+export function ButtonLink({ href, variant = "primary", className, prefetch, children }: ButtonLinkProps) {
   return (
-    <Link href={href} className={clsx(styles.button, styles[variant], className)}>
+    <Link href={href} prefetch={prefetch} className={clsx(styles.button, styles[variant], className)}>
       {children}
     </Link>
   );
