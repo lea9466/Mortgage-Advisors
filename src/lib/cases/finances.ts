@@ -165,42 +165,53 @@ export async function findPreviousIncomes(
   clientIds: string[],
 ): Promise<PreviousIncomes[]> {
   if (clientIds.length === 0) return [];
+  // Incomes point at (case, borrower), not at cases directly, so the case
+  // details are read in a second query rather than embedded.
   const { data, error } = await supabase
     .from("case_incomes")
-    .select("client_id, case_id, cases(case_year, case_seq, purpose, created_at)")
+    .select("client_id, case_id")
     .eq("organization_id", organizationId)
     .neq("case_id", caseId)
     .in("client_id", clientIds);
   if (error) throw new Error(`previous incomes failed: ${error.code}`);
+  const rows = z.array(z.object({ client_id: z.uuid(), case_id: z.uuid() })).parse(data ?? []);
+  if (rows.length === 0) return [];
 
-  const caseInfo = z.object({
-    case_year: z.number().int(),
-    case_seq: z.number().int(),
-    purpose: z.enum(MORTGAGE_PURPOSES),
-    created_at: z.string(),
-  });
-  const rows = z
-    .array(
-      z.object({
-        client_id: z.uuid(),
-        case_id: z.uuid(),
-        cases: z.union([caseInfo, z.array(caseInfo).length(1).transform((items) => items[0] as z.infer<typeof caseInfo>)]),
-      }),
-    )
-    .parse(data ?? []);
+  const { data: caseData, error: caseError } = await supabase
+    .from("cases")
+    .select("id, case_year, case_seq, purpose, created_at")
+    .eq("organization_id", organizationId)
+    .in("id", [...new Set(rows.map((row) => row.case_id))]);
+  if (caseError) throw new Error(`previous cases failed: ${caseError.code}`);
+  const cases = new Map(
+    z
+      .array(
+        z.object({
+          id: z.uuid(),
+          case_year: z.number().int(),
+          case_seq: z.number().int(),
+          purpose: z.enum(MORTGAGE_PURPOSES),
+          created_at: z.string(),
+        }),
+      )
+      .parse(caseData ?? [])
+      .map((item) => [item.id, item]),
+  );
 
   const latest = new Map<string, PreviousIncomes & { createdAt: string }>();
   for (const row of rows) {
+    const source = cases.get(row.case_id);
+    if (!source) continue;
     const current = latest.get(row.client_id);
     if (current && current.sourceCaseId === row.case_id) {
       current.count += 1;
-    } else if (!current || row.cases.created_at > current.createdAt) {
+    } else if (!current || source.created_at > current.createdAt) {
       latest.set(row.client_id, {
         clientId: row.client_id,
         sourceCaseId: row.case_id,
-        sourceCase: { year: row.cases.case_year, seq: row.cases.case_seq, purpose: row.cases.purpose },
+        sourceCase: { year: source.case_year, seq: source.case_seq, purpose: source.purpose },
         count: 1,
-        createdAt: row.cases.created_at,
+        createdAt: source.created_at,
       });
     }
   }
