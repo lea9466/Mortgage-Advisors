@@ -43,6 +43,14 @@
 
 .muted { font-size: var(--text-sm); color: var(--color-text-muted); }
 
+.notice { padding: var(--space-4) var(--space-6); border-radius: var(--radius-md); background: var(--color-primary-soft); }
+
+.spouse { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.inlineAction { padding: 0; border: 0; font-size: var(--text-sm); color: var(--color-text-muted); background: none; text-decoration: underline; }
+.inlineAction:hover { color: var(--color-error); }
+.childrenLines { display: flex; flex-direction: column; gap: var(--space-1); }
+.childrenDetail { font-size: var(--text-sm); color: var(--color-text-muted); }
+
 .caseList { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; list-style: none; }
 .caseLink {
   display: flex;

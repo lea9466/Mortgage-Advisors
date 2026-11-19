@@ -1,7 +1,20 @@
-import { deleteFinanceAction, revealAccountNumberAction, saveFinanceAction } from "@/app/(app)/cases/finance-actions";
+import {
+  copyPreviousIncomesAction,
+  deleteFinanceAction,
+  revealAccountNumberAction,
+  saveFinanceAction,
+} from "@/app/(app)/cases/finance-actions";
 import { RevealSecret } from "@/components/clients/RevealSecret";
+import { Button } from "@/components/ui/Button";
 import type { CaseBorrower } from "@/lib/cases/cases";
-import { sumBy, type BankAccountRecord, type IncomeRecord, type LiabilityRecord } from "@/lib/cases/finances";
+import {
+  sumBy,
+  type BankAccountRecord,
+  type IncomeRecord,
+  type LiabilityRecord,
+  type PreviousIncomes,
+} from "@/lib/cases/finances";
+import { formatCaseNumber, PURPOSE_LABELS } from "@/lib/validation/case";
 import { formatAmountInput, formatShekels, maskedIdNumber } from "@/lib/format";
 import {
   ACCOUNT_BANK_LABELS,
@@ -21,11 +34,36 @@ const options = (borrowers: CaseBorrower[]) =>
   borrowers.map((borrower) => ({ value: borrower.id, label: `${borrower.first_name} ${borrower.last_name}` }));
 const amountText = (value: number | null) => formatAmountInput(value) || "";
 
-export function IncomePanel({ caseId, borrowers, rows, editId }: PanelProps<IncomeRecord>) {
+export function IncomePanel({
+  caseId,
+  borrowers,
+  rows,
+  editId,
+  previous = [],
+}: PanelProps<IncomeRecord> & { previous?: PreviousIncomes[] }) {
   const tabHref = `/cases/${caseId}?tab=income`;
   const editing = rows.find((row) => row.id === editId);
+  const copyAction = copyPreviousIncomesAction.bind(null, caseId);
   return (
     <div className={styles.panel}>
+      {previous.map((item) => {
+        const borrower = borrowers.find((candidate) => candidate.id === item.clientId);
+        if (!borrower) return null;
+        return (
+          <form key={item.clientId} action={copyAction} className={styles.copyBox}>
+            <input type="hidden" name="clientId" value={item.clientId} />
+            <input type="hidden" name="sourceCaseId" value={item.sourceCaseId} />
+            <p>
+              ל{borrower.first_name} יש {item.count === 1 ? "הכנסה אחת" : `${item.count} הכנסות`} בתיק{" "}
+              {PURPOSE_LABELS[item.sourceCase.purpose]} {formatCaseNumber(item.sourceCase.year, item.sourceCase.seq)}.
+              אפשר להעתיק אותן לתיק הזה ולעדכן מה שהשתנה.
+            </p>
+            <Button type="submit" variant="secondary">
+              העתקת ההכנסות
+            </Button>
+          </form>
+        );
+      })}
       <FinanceList
         borrowers={borrowers}
         total={{ label: "סך הכנסות כל הלווים", value: sumBy(rows, (row) => row.monthly_amount) }}

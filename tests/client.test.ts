@@ -44,7 +44,7 @@ describe("client form", () => {
     expect(parsed.data.phone).toBe("0520001111");
     expect(parsed.data.email).toBeUndefined();
     expect(parsed.data.idNumber).toBeUndefined();
-    expect(parsed.data.childrenAges).toEqual([]);
+    expect(parsed.data.children).toEqual([]);
   });
 
   it("reads the receives-SMS box, off unless ticked", () => {
@@ -66,7 +66,17 @@ describe("client form", () => {
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     const paths = parsed.error.issues.map((issue) => String(issue.path[0]));
-    expect(paths).toEqual(expect.arrayContaining(["firstName", "idNumber", "childrenAges"]));
+    expect(paths).toEqual(expect.arrayContaining(["firstName", "idNumber", "children"]));
+  });
+
+  it("reads each child's age with its scope, shared unless marked as one parent's own", () => {
+    const parsed = clientSchema.safeParse(
+      readClientForm(form([...base, ["childAge", "3"], ["childScope", "shared"], ["childAge", "15"], ["childScope", "personal"], ["childAge", ""], ["childScope", "shared"]])),
+    );
+    expect(parsed.success && parsed.data.children).toEqual([
+      { age: 3, personal: false },
+      { age: 15, personal: true },
+    ]);
   });
 
   it("requires the other citizenship when the box is ticked", () => {

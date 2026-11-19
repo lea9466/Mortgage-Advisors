@@ -7,14 +7,20 @@ import { RevealSecret } from "@/components/clients/RevealSecret";
 import { ButtonLink } from "@/components/ui/Button";
 import { FormMessage } from "@/components/ui/FormMessage";
 import type { CaseBorrower } from "@/lib/cases/cases";
+import type { ClientChildren } from "@/lib/clients/family";
 import { ageFromBirthDate, formatPhone, maskedIdNumber } from "@/lib/format";
 import { MARITAL_STATUS_LABELS } from "@/lib/validation/client";
 import styles from "./BorrowersPanel.module.css";
 
-type BorrowersPanelProps = { caseId: string; borrowers: CaseBorrower[]; hasFinancesNotice?: boolean };
+type BorrowersPanelProps = {
+  caseId: string;
+  borrowers: CaseBorrower[];
+  childrenOf: Map<string, ClientChildren>;
+  hasFinancesNotice?: boolean;
+};
 
 /** The borrowers of a case, read from their client cards. */
-export function BorrowersPanel({ caseId, borrowers, hasFinancesNotice = false }: BorrowersPanelProps) {
+export function BorrowersPanel({ caseId, borrowers, childrenOf, hasFinancesNotice = false }: BorrowersPanelProps) {
   const canRemove = borrowers.length > 1;
   const year = new Date().getFullYear();
 
@@ -31,7 +37,9 @@ export function BorrowersPanel({ caseId, borrowers, hasFinancesNotice = false }:
       <ul className={styles.cards}>
         {borrowers.map((borrower) => {
           const age = ageFromBirthDate(borrower.birth_date);
-          const under18 = borrower.children_birth_years.filter((birthYear) => year - birthYear < 18).length;
+          const own = childrenOf.get(borrower.id) ?? { shared: [], personal: [] };
+          const under18 = [...own.shared, ...own.personal].filter((birthYear) => year - birthYear < 18).length;
+          const spouseInCase = borrowers.find((other) => other.id === borrower.spouse_id);
           const street = [borrower.street, borrower.house_number].filter(Boolean).join(" ");
           const address = [borrower.city, street].filter(Boolean).join(", ");
           return (
@@ -65,6 +73,7 @@ export function BorrowersPanel({ caseId, borrowers, hasFinancesNotice = false }:
                     : null}
                 </Item>
                 <Item label="כתובת">{address || null}</Item>
+                {spouseInCase && <Item label="בן/בת זוג">{`${spouseInCase.first_name} (גם לווה בתיק)`}</Item>}
               </dl>
               {canRemove && (
                 <form action={removeBorrowerAction.bind(null, caseId)}>

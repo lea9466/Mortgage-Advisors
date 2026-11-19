@@ -28,7 +28,7 @@ const borrowerClientSchema = z.object({
   phone: nullableText,
   phone_receives_sms: z.boolean(),
   marital_status: z.enum(MARITAL_STATUSES).nullable(),
-  children_birth_years: z.array(z.number().int()),
+  spouse_id: z.uuid().nullable(),
   city: nullableText,
   street: nullableText,
   house_number: nullableText,
@@ -68,7 +68,7 @@ export type CaseBorrower = CaseRecord["case_borrowers"][number]["clients"];
 export type CaseListItem = z.infer<typeof listItemSchema>;
 
 const BORROWER_COLUMNS =
-  "id, first_name, last_name, id_number_last4, birth_date, phone, phone_receives_sms, marital_status, children_birth_years, city, street, house_number";
+  "id, first_name, last_name, id_number_last4, birth_date, phone, phone_receives_sms, marital_status, spouse_id, city, street, house_number";
 const CASE_COLUMNS = `id, case_year, case_seq, purpose, stage, requested_amount, property_value, contract_price, equity, hand, apartment_class, updated_at, case_borrowers(position, clients(${BORROWER_COLUMNS}))`;
 const LIST_COLUMNS =
   "id, case_year, case_seq, purpose, stage, requested_amount, updated_at, case_borrowers(position, clients(first_name, last_name))";

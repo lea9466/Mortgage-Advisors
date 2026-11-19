@@ -12,7 +12,8 @@ import { StageForm } from "@/components/cases/StageForm";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { requireSession } from "@/lib/auth/session";
 import { caseTitle, getCase, shownPropertyValue, type CaseRecord } from "@/lib/cases/cases";
-import { getCaseFinances, sumBy } from "@/lib/cases/finances";
+import { findPreviousIncomes, getCaseFinances, sumBy } from "@/lib/cases/finances";
+import { getChildrenOf } from "@/lib/clients/family";
 import { listLog } from "@/lib/cases/log";
 import { formatAmountInput } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -52,9 +53,12 @@ export default async function CasePage({
   const supabase = await createClient();
   const record = await getCase(supabase, session.organization.id, id.data);
   if (!record) notFound();
-  const [logEntries, finances] = await Promise.all([
+  const borrowerIds = record.case_borrowers.map((link) => link.clients.id);
+  const [logEntries, finances, children, previousIncomes] = await Promise.all([
     listLog(supabase, session.organization.id, record.id, { q: logFilter.logq, from: logFilter.logfrom }),
     getCaseFinances(supabase, session.organization.id, record.id),
+    getChildrenOf(supabase, session.organization.id, borrowerIds),
+    findPreviousIncomes(supabase, session.organization.id, record.id, borrowerIds),
   ]);
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
@@ -83,10 +87,21 @@ export default async function CasePage({
           <CaseTabs caseId={record.id} current={tab} />
           <div className={styles.tabBody}>
             {tab === "personal" && (
-              <BorrowersPanel caseId={record.id} borrowers={borrowers} hasFinancesNotice={notice === "has-finances"} />
+              <BorrowersPanel
+                caseId={record.id}
+                borrowers={borrowers}
+                childrenOf={children}
+                hasFinancesNotice={notice === "has-finances"}
+              />
             )}
             {tab === "income" && (
-              <IncomePanel caseId={record.id} borrowers={borrowers} rows={finances.incomes} editId={edit} />
+              <IncomePanel
+                caseId={record.id}
+                borrowers={borrowers}
+                rows={finances.incomes}
+                editId={edit}
+                previous={previousIncomes.filter((item) => !finances.incomes.some((row) => row.client_id === item.clientId))}
+              />
             )}
             {tab === "debts" && (
               <LiabilityPanel caseId={record.id} borrowers={borrowers} rows={finances.liabilities} editId={edit} />

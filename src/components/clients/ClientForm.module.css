@@ -39,7 +39,17 @@
 }
 .childrenLegend { padding: 0; margin-block-end: var(--space-3); font-weight: 600; }
 .childRows { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: 0; list-style: none; }
-.childRow { display: flex; align-items: center; gap: var(--space-1); }
+.childRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.childLabel { font-size: var(--text-sm); color: var(--color-text-muted); }
+.childScope { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); cursor: pointer; white-space: nowrap; }
+.childScope input { accent-color: var(--color-primary); }
 .childInput {
   inline-size: 5rem;
   min-block-size: var(--control-height);

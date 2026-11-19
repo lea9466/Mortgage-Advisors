@@ -7,7 +7,13 @@ import type { RevealState } from "@/app/(app)/clients/actions";
 import { recordAudit } from "@/lib/audit/log";
 import { requireSession, type SessionContext } from "@/lib/auth/session";
 import { getCase } from "@/lib/cases/cases";
-import { deleteFinanceRow, insertFinanceRow, revealAccountNumber, updateFinanceRow } from "@/lib/cases/finances";
+import {
+  copyIncomes,
+  deleteFinanceRow,
+  insertFinanceRow,
+  revealAccountNumber,
+  updateFinanceRow,
+} from "@/lib/cases/finances";
 import { logSystemEvent } from "@/lib/cases/log";
 import { formatShekels } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -162,6 +168,40 @@ export async function deleteFinanceAction(area: FinanceArea, caseId: string, for
     });
   }
   redirect(`/cases/${id.data}?tab=${config.tab}`);
+}
+
+/** Copies a borrower's incomes from their previous case. The adviser then updates what changed. */
+export async function copyPreviousIncomesAction(caseId: string, formData: FormData): Promise<void> {
+  const session = await requireSession();
+  const id = uuid.safeParse(caseId);
+  const clientId = uuid.safeParse(formData.get("clientId"));
+  const sourceCaseId = uuid.safeParse(formData.get("sourceCaseId"));
+  if (!id.success) redirect("/cases");
+  if (!clientId.success || !sourceCaseId.success) redirect(`/cases/${id.data}?tab=income`);
+
+  const supabase = await createClient();
+  const record = await getCase(supabase, session.organization.id, id.data);
+  const borrower = record?.case_borrowers.find((link) => link.clients.id === clientId.data)?.clients;
+  if (record && borrower) {
+    const copied = await copyIncomes(supabase, context(session), id.data, clientId.data, sourceCaseId.data);
+    if (copied > 0) {
+      await logSystemEvent(
+        supabase,
+        context(session),
+        id.data,
+        `הועתקו ${copied === 1 ? "הכנסה אחת" : `${copied} הכנסות`} מהתיק הקודם · ${borrower.first_name} ${borrower.last_name}`,
+      );
+      await recordAudit(supabase, {
+        organizationId: session.organization.id,
+        actorId: session.user.id,
+        action: "case.copy_incomes",
+        entityType: "case",
+        entityId: id.data,
+        metadata: { sourceCaseId: sourceCaseId.data },
+      });
+    }
+  }
+  redirect(`/cases/${id.data}?tab=income`);
 }
 
 /** Shows a full bank account number. Logged first; if logging fails, nothing is shown. */

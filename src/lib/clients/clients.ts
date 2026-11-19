@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { setClientChildren } from "@/lib/clients/family";
 import { blindIndex, decryptField, encryptField } from "@/lib/crypto/fieldEncryption";
 import { requireEnv } from "@/lib/env";
 import type { ClientInput } from "@/lib/validation/client";
@@ -10,7 +11,7 @@ import { canonicalIsraeliId, isValidIsraeliId } from "@/lib/validation/israeliId
 const LIST_LIMIT = 50;
 
 const CLIENT_COLUMNS =
-  "id, first_name, last_name, id_number_last4, id_issue_date, id_expiry_date, birth_date, phone, phone_receives_sms, phone_alt, email, marital_status, has_other_citizenship, other_citizenship, children_birth_years, city, street, house_number, created_at, updated_at";
+  "id, first_name, last_name, id_number_last4, id_issue_date, id_expiry_date, birth_date, phone, phone_receives_sms, phone_alt, email, marital_status, has_other_citizenship, other_citizenship, spouse_id, city, street, house_number, created_at, updated_at";
 
 const LIST_COLUMNS = "id, first_name, last_name, id_number_last4, birth_date, phone, city";
 
@@ -31,7 +32,7 @@ const clientRowSchema = z.object({
   marital_status: z.enum(MARITAL_STATUSES).nullable(),
   has_other_citizenship: z.boolean(),
   other_citizenship: nullableText,
-  children_birth_years: z.array(z.number().int()),
+  spouse_id: z.uuid().nullable(),
   city: nullableText,
   street: nullableText,
   house_number: nullableText,
@@ -73,8 +74,16 @@ function idNumberColumns(organizationId: string, idNumber: string | undefined) {
   };
 }
 
-function toColumns(input: ClientInput, now: Date) {
+/** Ages as birth years, split into shared and personal, so ages stay right as time passes. */
+function childrenFrom(input: ClientInput, now: Date) {
   const year = now.getFullYear();
+  return {
+    shared: input.children.filter((child) => !child.personal).map((child) => year - child.age),
+    personal: input.children.filter((child) => child.personal).map((child) => year - child.age),
+  };
+}
+
+function toColumns(input: ClientInput) {
   return {
     first_name: input.firstName,
     last_name: input.lastName,
@@ -88,8 +97,6 @@ function toColumns(input: ClientInput, now: Date) {
     marital_status: input.maritalStatus ?? null,
     has_other_citizenship: input.hasOtherCitizenship,
     other_citizenship: input.hasOtherCitizenship ? (input.otherCitizenship ?? null) : null,
-    // Ages are stored as birth years so they stay correct as time passes.
-    children_birth_years: input.childrenAges.map((age) => year - age),
     city: input.city ?? null,
     street: input.street ?? null,
     house_number: input.houseNumber ?? null,
@@ -106,7 +113,7 @@ export async function createClientRecord(
     .insert({
       organization_id: context.organizationId,
       created_by: context.userId,
-      ...toColumns(input, new Date()),
+      ...toColumns(input),
       ...idNumberColumns(context.organizationId, input.idNumber),
     })
     .select("id")
@@ -114,7 +121,9 @@ export async function createClientRecord(
 
   if (error?.code === "23505") throw new DuplicateIdNumberError();
   if (error || !data) throw new Error(`client insert failed: ${error?.code ?? "no row"}`);
-  return z.object({ id: z.uuid() }).parse(data).id;
+  const clientId = z.object({ id: z.uuid() }).parse(data).id;
+  await setClientChildren(supabase, clientId, childrenFrom(input, new Date()));
+  return clientId;
 }
 
 /** Updates a client. An empty ID number keeps the one already stored. */
@@ -127,7 +136,7 @@ export async function updateClientRecord(
   const { data, error } = await supabase
     .from("clients")
     .update({
-      ...toColumns(input, new Date()),
+      ...toColumns(input),
       ...idNumberColumns(context.organizationId, input.idNumber),
     })
     .eq("id", clientId)
@@ -136,7 +145,9 @@ export async function updateClientRecord(
 
   if (error?.code === "23505") throw new DuplicateIdNumberError();
   if (error) throw new Error(`client update failed: ${error.code}`);
-  return (data ?? []).length === 1;
+  if ((data ?? []).length !== 1) return false;
+  await setClientChildren(supabase, clientId, childrenFrom(input, new Date()));
+  return true;
 }
 
 export async function getClientRecord(

@@ -47,8 +47,14 @@ export const clientSchema = z
     city: text(80).optional(),
     street: text(80).optional(),
     houseNumber: text(10).optional(),
-    childrenAges: z
-      .array(z.coerce.number("גיל לא תקין").int("גיל לא תקין").min(0, "גיל לא תקין").max(60, "גיל לא תקין"))
+    children: z
+      .array(
+        z.object({
+          age: z.coerce.number("גיל לא תקין").int("גיל לא תקין").min(0, "גיל לא תקין").max(60, "גיל לא תקין"),
+          /** True for a child of this client only, not shared with the spouse. */
+          personal: z.boolean(),
+        }),
+      )
       .max(MAX_CHILDREN, "יותר מדי ילדים"),
   })
   .refine((data) => !data.hasOtherCitizenship || data.otherCitizenship, {
@@ -87,7 +93,7 @@ export type ClientTextField = (typeof CLIENT_TEXT_FIELDS)[number];
 export type ClientFormValues = Partial<Record<ClientTextField, string>> & {
   phoneReceivesSms?: boolean;
   hasOtherCitizenship?: boolean;
-  childrenAges?: string[];
+  children?: { age: string; personal: boolean }[];
 };
 
 /** Reads the client form. Empty inputs become undefined so optional fields stay optional. */
@@ -99,9 +105,12 @@ export function readClientForm(formData: FormData): ClientFormValues {
   }
   values.phoneReceivesSms = formData.get("phoneReceivesSms") === "on";
   values.hasOtherCitizenship = formData.get("hasOtherCitizenship") === "on";
-  values.childrenAges = formData
-    .getAll("childAge")
-    .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+  // Each child row sends an age and a scope ("shared" or "personal"), in the same order.
+  const ages = formData.getAll("childAge");
+  const scopes = formData.getAll("childScope");
+  values.children = ages
+    .map((age, index) => ({ age: typeof age === "string" ? age.trim() : "", personal: scopes[index] === "personal" }))
+    .filter((child) => child.age !== "")
     .slice(0, MAX_CHILDREN + 1);
   return values;
 }

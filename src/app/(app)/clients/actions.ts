@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
-import { requireSession } from "@/lib/auth/session";
+import { requireSession, type SessionContext } from "@/lib/auth/session";
 import { addBorrower } from "@/lib/cases/cases";
+import { linkSpouses, SpouseLinkError, unlinkSpouse } from "@/lib/clients/family";
 import { logSystemEvent } from "@/lib/cases/log";
 import {
   createClientRecord,
@@ -67,6 +68,19 @@ export async function createClientAction(
     entityId: clientId,
   });
 
+  // Added as a spouse: link the two, so shared children show on both cards.
+  const spouseOf = clientIdSchema.safeParse(formData.get("spouseOf"));
+  if (spouseOf.success) {
+    try {
+      await linkSpouses(supabase, spouseOf.data, clientId);
+      await auditSpouse(session, "client.link_spouse", spouseOf.data, clientId);
+    } catch (error) {
+      // The client is saved; only the link failed. The card shows no spouse, and it can be linked from there.
+      console.error("spouse link failed", error instanceof Error ? error.message : "unknown");
+    }
+    redirect(`/clients/${clientId}`);
+  }
+
   // Opened from a case: the new client joins it as a borrower.
   const caseId = clientIdSchema.safeParse(formData.get("caseId"));
   if (caseId.success) {
@@ -126,6 +140,49 @@ export async function updateClientAction(
     entityType: "client",
     entityId: id.data,
   });
+  redirect(`/clients/${id.data}`);
+}
+
+async function auditSpouse(session: SessionContext, action: string, clientId: string, spouseId?: string) {
+  const supabase = await createClient();
+  await recordAudit(supabase, {
+    organizationId: session.organization.id,
+    actorId: session.user.id,
+    action,
+    entityType: "client",
+    entityId: clientId,
+    metadata: spouseId ? { spouseId } : undefined,
+  });
+}
+
+/** Links a client to an existing client as spouses. */
+export async function linkSpouseAction(clientId: string, formData: FormData): Promise<void> {
+  const session = await requireSession();
+  const id = clientIdSchema.safeParse(clientId);
+  const spouseId = clientIdSchema.safeParse(formData.get("spouseId"));
+  if (!id.success) redirect("/clients");
+  if (!spouseId.success) redirect(`/clients/${id.data}/spouse`);
+
+  const supabase = await createClient();
+  try {
+    await linkSpouses(supabase, id.data, spouseId.data);
+  } catch (error) {
+    if (error instanceof SpouseLinkError) redirect(`/clients/${id.data}/spouse?error=${error.reason}`);
+    throw error;
+  }
+  await auditSpouse(session, "client.link_spouse", id.data, spouseId.data);
+  redirect(`/clients/${id.data}?linked=1`);
+}
+
+/** Unlinks spouses. Each keeps a copy of the children they shared. */
+export async function unlinkSpouseAction(clientId: string): Promise<void> {
+  const session = await requireSession();
+  const id = clientIdSchema.safeParse(clientId);
+  if (!id.success) redirect("/clients");
+
+  const supabase = await createClient();
+  await unlinkSpouse(supabase, id.data);
+  await auditSpouse(session, "client.unlink_spouse", id.data);
   redirect(`/clients/${id.data}`);
 }
 

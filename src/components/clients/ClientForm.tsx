@@ -27,6 +27,11 @@ type ClientFormProps = {
   caseId?: string;
   /** Set when the client is created while opening a new case. */
   openCaseNext?: boolean;
+  /** Set when the new client is the spouse of this client; they are linked once saved. */
+  spouseOf?: string;
+  spouseOfName?: string;
+  /** Set when the client has a linked spouse, so children can be shared or personal. */
+  family?: { clientName: string; spouseName: string };
 };
 
 const MARITAL_OPTIONS = MARITAL_STATUSES.map((value) => ({ value, label: MARITAL_STATUS_LABELS[value] }));
@@ -40,6 +45,9 @@ export function ClientForm({
   storedIdNumber,
   caseId,
   openCaseNext,
+  spouseOf,
+  spouseOfName,
+  family,
 }: ClientFormProps) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const values = state.values ?? initialValues;
@@ -51,7 +59,14 @@ export function ClientForm({
     <form key={formKey} action={formAction} noValidate className={styles.form}>
       {caseId && <input type="hidden" name="caseId" value={caseId} />}
       {openCaseNext && <input type="hidden" name="then" value="open-case" />}
-      <ClientFields values={values} errors={state.fieldErrors ?? {}} storedIdNumber={storedIdNumber} />
+      {spouseOf && <input type="hidden" name="spouseOf" value={spouseOf} />}
+      <ClientFields
+        values={values}
+        errors={state.fieldErrors ?? {}}
+        storedIdNumber={storedIdNumber}
+        family={family}
+        childrenNote={spouseOfName ? `הילדים המשותפים יופיעו אוטומטית מהכרטיס של ${spouseOfName}. ילדים שאינם משותפים אפשר להוסיף אחרי השמירה, בעריכת הכרטיס.` : undefined}
+      />
       <FormMessage message={state.error} />
       <div className={styles.actions}>
         <Button type="submit" disabled={isPending}>
@@ -65,13 +80,17 @@ export function ClientForm({
   );
 }
 
+type Family = { clientName: string; spouseName: string };
+
 type ClientFieldsProps = {
   values: ClientFormValues;
   errors: Partial<Record<string, string[]>>;
   storedIdNumber?: string;
+  family?: Family;
+  childrenNote?: string;
 };
 
-function ClientFields({ values, errors, storedIdNumber }: ClientFieldsProps) {
+function ClientFields({ values, errors, storedIdNumber, family, childrenNote }: ClientFieldsProps) {
   const [hasOtherCitizenship, setHasOtherCitizenship] = useState(values.hasOtherCitizenship ?? false);
   const error = (field: string) => errors[field]?.[0];
 
@@ -133,7 +152,11 @@ function ClientFields({ values, errors, storedIdNumber }: ClientFieldsProps) {
             )}
           </div>
         </div>
-        <ChildrenAgesField initialAges={values.childrenAges ?? []} error={error("childrenAges")} />
+        {childrenNote ? (
+          <p className={styles.muted}>{childrenNote}</p>
+        ) : (
+          <ChildrenAgesField initialChildren={values.children ?? []} family={family} error={error("children")} />
+        )}
       </section>
 
       <section className={styles.section} aria-labelledby="section-address">

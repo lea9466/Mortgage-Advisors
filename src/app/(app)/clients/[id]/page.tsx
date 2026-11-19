@@ -4,7 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FolderPlus, Pencil } from "lucide-react";
 import { RevealSecret } from "@/components/clients/RevealSecret";
-import { revealIdNumberAction } from "../actions";
+import { revealIdNumberAction, unlinkSpouseAction } from "../actions";
+import { getChildrenOf, getSpouse, type ClientChildren } from "@/lib/clients/family";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { ButtonLink } from "@/components/ui/Button";
 import { requireSession } from "@/lib/auth/session";
@@ -18,15 +19,27 @@ import styles from "./card.module.css";
 
 export const metadata: Metadata = { title: "כרטיס לקוח" };
 
-export default async function ClientCardPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientCardPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireSession();
   const id = clientIdSchema.safeParse((await params).id);
   if (!id.success) notFound();
+  const justLinked = (await searchParams).linked === "1";
 
   const supabase = await createClient();
   const client = await getClientRecord(supabase, session.organization.id, id.data);
   if (!client) notFound();
-  const cases = await listClientCases(supabase, session.organization.id, client.id);
+  const [cases, spouse, childrenMap] = await Promise.all([
+    listClientCases(supabase, session.organization.id, client.id),
+    getSpouse(supabase, session.organization.id, client.id),
+    getChildrenOf(supabase, session.organization.id, [client.id]),
+  ]);
+  const children = childrenMap.get(client.id) ?? { shared: [], personal: [] };
 
   return (
     <div className={styles.page}>
@@ -40,6 +53,12 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
           </ButtonLink>
         }
       />
+      {justLinked && spouse && (
+        <p role="status" className={styles.notice}>
+          {client.first_name} ו{spouse.first_name} מקושרים עכשיו כבני זוג, והילדים המשותפים מופיעים אצל שניהם. אם הילדים הוזנו
+          קודם אצל כל אחד מהם בנפרד, בדקו בעריכת הכרטיס שאין ילדים כפולים.
+        </p>
+      )}
       <div className={styles.layout}>
         <div className={styles.details}>
           <DetailsSection title="פרטים אישיים">
@@ -60,7 +79,26 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
           </DetailsSection>
           <DetailsSection title="משפחה ואזרחות">
             <Row label="מצב משפחתי">{client.marital_status ? MARITAL_STATUS_LABELS[client.marital_status] : null}</Row>
-            <Row label="ילדים">{childrenLine(client.children_birth_years)}</Row>
+            <Row label="בן/בת זוג">
+              {spouse ? (
+                <span className={styles.spouse}>
+                  <Link href={`/clients/${spouse.id}`}>
+                    {spouse.first_name} {spouse.last_name}
+                  </Link>
+                  <form action={unlinkSpouseAction.bind(null, client.id)}>
+                    <button type="submit" className={styles.inlineAction}>
+                      ניתוק הקישור
+                    </button>
+                  </form>
+                </span>
+              ) : (
+                <span className={styles.spouse}>
+                  <Link href={`/clients/new?spouseOf=${client.id}`}>הוספת בן/בת זוג</Link>
+                  <Link href={`/clients/${client.id}/spouse`}>קישור ללקוח קיים</Link>
+                </span>
+              )}
+            </Row>
+            <Row label="ילדים">{childrenLine(children, spouse?.first_name, client.first_name)}</Row>
             <Row label="אזרחות נוספת">{client.has_other_citizenship ? (client.other_citizenship ?? "כן") : "לא"}</Row>
           </DetailsSection>
           <DetailsSection title="כתובת">
@@ -122,12 +160,29 @@ function birthLine(client: ClientRecord): string | null {
   return age === null ? formatDate(client.birth_date) : `${formatDate(client.birth_date)} · גיל ${age}`;
 }
 
-function childrenLine(birthYears: number[]): string | null {
-  if (birthYears.length === 0) return null;
+function childrenLine(children: ClientChildren, spouseName: string | undefined, clientName: string): ReactNode {
+  const all = [...children.shared, ...children.personal];
+  if (all.length === 0) return null;
   const year = new Date().getFullYear();
-  const ages = birthYears.map((birthYear) => year - birthYear).sort((a, b) => a - b);
-  const under18 = ages.filter((age) => age < 18).length;
-  return `${ages.length} ילדים, ${under18} מתחת לגיל 18 · גילאים ${ages.join(", ")}`;
+  const ages = (birthYears: number[]) => birthYears.map((birthYear) => year - birthYear).sort((a, b) => a - b).join(", ");
+  const under18 = all.filter((birthYear) => year - birthYear < 18).length;
+  return (
+    <span className={styles.childrenLines}>
+      <span>
+        {all.length} ילדים, {under18} מתחת לגיל 18
+      </span>
+      {children.shared.length > 0 && (
+        <span className={styles.childrenDetail}>
+          {spouseName ? `משותפים עם ${spouseName}` : "גילאים"}: {ages(children.shared)}
+        </span>
+      )}
+      {children.personal.length > 0 && (
+        <span className={styles.childrenDetail}>
+          רק של {clientName}: {ages(children.personal)}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function addressLine(client: ClientRecord): string | null {
