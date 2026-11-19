@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { BorrowersPanel } from "@/components/cases/BorrowersPanel";
 import { CaseLog } from "@/components/cases/CaseLog";
+import { DocumentsPanel } from "@/components/cases/documents/DocumentsPanel";
+import { listDocuments } from "@/lib/cases/documents";
 import { BankAccountPanel, IncomePanel, LiabilityPanel } from "@/components/cases/finance/FinancePanels";
 import { CaseStats } from "@/components/cases/CaseStats";
 import { CASE_TABS, CaseTabs, type CaseTabId } from "@/components/cases/CaseTabs";
@@ -34,7 +36,6 @@ const searchSchema = z.object({
 });
 
 const LATER: Partial<Record<CaseTabId, { title: string; text: string }>> = {
-  documents: { title: "מסמכים ומעקב מסמכים", text: "ייבנה בשלב 4, כולל הקישור ללקוח להעלאת מסמכים." },
   messages: { title: "הודעות ללקוח", text: "ייבנה בשלב 5. בהתחלה: פתיחת WhatsApp עם הודעה מוכנה." },
 };
 
@@ -62,6 +63,7 @@ export default async function CasePage({
     getChildrenOf(supabase, session.organization.id, borrowerIds),
     findPreviousIncomes(supabase, session.organization.id, record.id, borrowerIds),
   ]);
+  const documents = tab === "documents" ? await listDocuments(supabase, session.organization.id, record.id) : [];
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
   const later = LATER[tab];
@@ -116,6 +118,9 @@ export default async function CasePage({
             )}
             {tab === "debts" && (
               <LiabilityPanel caseId={record.id} borrowers={borrowers} rows={finances.liabilities} editId={edit} />
+            )}
+            {tab === "documents" && (
+              <DocumentsPanel caseId={record.id} borrowers={borrowers} documents={documents} editId={edit} />
             )}
             {tab === "bank" && (
               <BankAccountPanel caseId={record.id} borrowers={borrowers} rows={finances.accounts} editId={edit} />

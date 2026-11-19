@@ -6,6 +6,8 @@ import {
   StorageError,
   StorageNotFoundError,
   type PutOptions,
+  type SignedUpload,
+  type SignedUploadOptions,
   type SignedUrlOptions,
   type StorageProvider,
 } from "./types";
@@ -90,5 +92,13 @@ export class SupabaseStorageProvider implements StorageProvider {
     });
     if (error) throw new StorageError("Supabase signed URL failed", { cause: error });
     return data.signedUrl;
+  }
+
+  /** Verified against the real bucket: a raw PUT stores the bytes, and the link cannot be reused. */
+  async getSignedUploadUrl(key: string, options: SignedUploadOptions): Promise<SignedUpload> {
+    assertValidKey(key);
+    const { data, error } = await this.files.createSignedUploadUrl(key);
+    if (error) throw new StorageError("Supabase signed upload failed", { cause: error });
+    return { url: data.signedUrl, headers: { "content-type": options.contentType } };
   }
 }

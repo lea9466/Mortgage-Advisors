@@ -12,6 +12,15 @@ export type SignedUrlOptions = {
   downloadName?: string;
 };
 
+export type SignedUploadOptions = {
+  contentType: string;
+  /** How long the link works. A few minutes is enough for one file. */
+  expiresInSeconds: number;
+};
+
+/** Where the browser sends the file itself: an HTTP PUT of the raw bytes to `url` with `headers`. */
+export type SignedUpload = { url: string; headers: Record<string, string> };
+
 /**
  * The single contract every file store implements. Application code talks only
  * to this interface, never to a vendor SDK, so moving to another vendor means
@@ -32,6 +41,12 @@ export interface StorageProvider {
   copy(fromKey: string, toKey: string): Promise<void>;
   /** A temporary download link for the browser. */
   getSignedDownloadUrl(key: string, options: SignedUrlOptions): Promise<string>;
+  /**
+   * A one-time link the browser uploads one new object to, directly, so large
+   * files never pass through the app server. The server checks the object
+   * afterwards and deletes it if it is not an allowed file.
+   */
+  getSignedUploadUrl(key: string, options: SignedUploadOptions): Promise<SignedUpload>;
 }
 
 export class StorageError extends Error {

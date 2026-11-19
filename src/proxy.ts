@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { buildCsp } from "@/lib/security/csp";
+import { buildCsp, originOf } from "@/lib/security/csp";
 
 const PUBLIC_PATHS = new Set(["/login", "/signup", "/auth/callback", "/setup"]);
 /** Pages that make no sense once signed in. */
@@ -16,7 +16,14 @@ const CSP_HEADER = "Content-Security-Policy";
  */
 export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = buildCsp(nonce, process.env.NODE_ENV === "development");
+  // Browsers upload documents straight to the file store, so its origin is allowed for connect-src.
+  const uploadOrigins =
+    process.env.STORAGE_PROVIDER === "s3"
+      ? originOf(process.env.S3_ENDPOINT)
+      : process.env.STORAGE_PROVIDER === "local"
+        ? []
+        : originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const csp = buildCsp(nonce, process.env.NODE_ENV === "development", uploadOrigins);
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

@@ -14,6 +14,8 @@ import {
   StorageError,
   StorageNotFoundError,
   type PutOptions,
+  type SignedUpload,
+  type SignedUploadOptions,
   type SignedUrlOptions,
   type StorageProvider,
 } from "./types";
@@ -147,6 +149,17 @@ export class S3StorageProvider implements StorageProvider {
       return await getSignedUrl(this.client, command, { expiresIn: options.expiresInSeconds });
     } catch (error) {
       throw new StorageError("S3 signed URL failed", { cause: error });
+    }
+  }
+
+  async getSignedUploadUrl(key: string, options: SignedUploadOptions): Promise<SignedUpload> {
+    assertValidKey(key);
+    const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: options.contentType });
+    try {
+      const url = await getSignedUrl(this.client, command, { expiresIn: options.expiresInSeconds });
+      return { url, headers: { "content-type": options.contentType } };
+    } catch (error) {
+      throw new StorageError("S3 signed upload failed", { cause: error });
     }
   }
 }

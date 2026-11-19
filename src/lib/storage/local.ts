@@ -8,11 +8,14 @@ import {
   StorageError,
   StorageNotFoundError,
   type PutOptions,
+  type SignedUpload,
+  type SignedUploadOptions,
   type SignedUrlOptions,
   type StorageProvider,
 } from "./types";
 
 export const LOCAL_DOWNLOAD_PATH = "/api/files/local";
+export const LOCAL_UPLOAD_PATH = "/api/files/local/upload";
 
 type LocalStorageConfig = {
   rootDir: string;
@@ -99,6 +102,24 @@ export class LocalStorageProvider implements StorageProvider {
     if (options.downloadName) params.set("name", options.downloadName);
     params.set("signature", this.sign(key, expires, options.downloadName ?? ""));
     return `${LOCAL_DOWNLOAD_PATH}?${params.toString()}`;
+  }
+
+  async getSignedUploadUrl(key: string, options: SignedUploadOptions): Promise<SignedUpload> {
+    assertValidKey(key);
+    const expires = Math.floor(Date.now() / 1000) + options.expiresInSeconds;
+    const params = new URLSearchParams({ key, expires: String(expires), type: options.contentType });
+    params.set("signature", this.sign(key, expires, `upload:${options.contentType}`));
+    return { url: `${LOCAL_UPLOAD_PATH}?${params.toString()}`, headers: { "content-type": options.contentType } };
+  }
+
+  /** Checks a link produced by getSignedUploadUrl. */
+  verifySignedUpload(input: { key: string; expires: number; contentType: string; signature: string }): boolean {
+    return this.verifySignedDownload({
+      key: input.key,
+      expires: input.expires,
+      name: `upload:${input.contentType}`,
+      signature: input.signature,
+    });
   }
 
   /** Checks a link produced by getSignedDownloadUrl. */
