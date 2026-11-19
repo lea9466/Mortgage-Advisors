@@ -2,16 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-const childRow = z.object({
-  household_id: z.uuid().nullable(),
-  client_id: z.uuid().nullable(),
-  birth_year: z.number().int(),
-});
-
-const familyRow = z.object({ id: z.uuid(), household_id: z.uuid().nullable(), spouse_id: z.uuid().nullable() });
+const childRow = z.object({ client_id: z.uuid(), birth_year: z.number().int(), shared: z.boolean() });
+const spouseRow = z.object({ id: z.uuid(), spouse_id: z.uuid().nullable() });
 
 export type ClientChildren = {
-  /** Shared with the spouse (or simply the client's, when there is no spouse). */
+  /** Shared with the spouse: this client's shared children plus the spouse's. */
   shared: number[];
   /** This client's own, not shared with the spouse. */
   personal: number[];
@@ -27,8 +22,8 @@ export class SpouseLinkError extends Error {
 }
 
 /**
- * Children of several clients at once, as birth years. Each client gets their
- * household's children plus their own. Used by the case screen and the report.
+ * Children of several clients at once, as birth years. Each child belongs to
+ * the client who entered it; a client also sees their spouse's shared children.
  */
 export async function getChildrenOf(
   supabase: SupabaseClient,
@@ -40,32 +35,29 @@ export async function getChildrenOf(
 
   const { data: clients, error } = await supabase
     .from("clients")
-    .select("id, household_id, spouse_id")
+    .select("id, spouse_id")
     .eq("organization_id", organizationId)
     .in("id", clientIds);
-  if (error) throw new Error(`family read failed: ${error.code}`);
-  const families = z.array(familyRow).parse(clients ?? []);
-  const householdIds = [...new Set(families.map((row) => row.household_id).filter((id): id is string => id !== null))];
+  if (error) throw new Error(`spouse read failed: ${error.code}`);
+  const spouses = z.array(spouseRow).parse(clients ?? []);
+  const owners = [...new Set([...clientIds, ...spouses.map((row) => row.spouse_id).filter((id): id is string => id !== null)])];
 
-  const childrenQuery = () =>
-    supabase
-      .from("client_children")
-      .select("household_id, client_id, birth_year")
-      .eq("organization_id", organizationId)
-      .order("birth_year", { ascending: false });
-  const [personal, shared] = await Promise.all([
-    childrenQuery().in("client_id", clientIds),
-    householdIds.length > 0 ? childrenQuery().in("household_id", householdIds) : Promise.resolve({ data: [], error: null }),
-  ]);
-  const childError = personal.error ?? shared.error;
+  const { data: children, error: childError } = await supabase
+    .from("client_children")
+    .select("client_id, birth_year, shared")
+    .eq("organization_id", organizationId)
+    .in("client_id", owners)
+    .order("birth_year", { ascending: false });
   if (childError) throw new Error(`children read failed: ${childError.code}`);
+  const rows = z.array(childRow).parse(children ?? []);
 
-  const rows = z.array(childRow).parse([...(personal.data ?? []), ...(shared.data ?? [])]);
-  for (const family of families) {
-    const entry = result.get(family.id);
+  for (const client of spouses) {
+    const entry = result.get(client.id);
     if (!entry) continue;
-    entry.shared = rows.filter((row) => family.household_id && row.household_id === family.household_id).map((row) => row.birth_year);
-    entry.personal = rows.filter((row) => row.client_id === family.id).map((row) => row.birth_year);
+    entry.shared = rows
+      .filter((row) => row.shared && (row.client_id === client.id || row.client_id === client.spouse_id))
+      .map((row) => row.birth_year);
+    entry.personal = rows.filter((row) => !row.shared && row.client_id === client.id).map((row) => row.birth_year);
   }
   return result;
 }
@@ -85,6 +77,7 @@ export async function getSpouse(supabase: SupabaseClient, organizationId: string
   return parsed.success ? parsed.data.spouse : null;
 }
 
+/** Saves the children from one client's form; shared ones replace the family's shared children. */
 export async function setClientChildren(supabase: SupabaseClient, clientId: string, children: ClientChildren): Promise<void> {
   const { error } = await supabase.rpc("set_client_children", {
     p_client: clientId,
@@ -101,12 +94,13 @@ export async function linkSpouses(supabase: SupabaseClient, clientId: string, sp
   if (error) throw new Error(`spouse link failed: ${error.code}`);
 }
 
+/** Unlinks spouses; each keeps a copy of the children they shared. */
 export async function unlinkSpouse(supabase: SupabaseClient, clientId: string): Promise<void> {
   const { error } = await supabase.rpc("unlink_spouse", { p_client: clientId });
   if (error) throw new Error(`spouse unlink failed: ${error.code}`);
 }
 
-/** All children of one family once: both spouses' shared children are the same rows. */
+/** All children of one family once: both spouses see the same shared children. */
 export function familyChildren(members: ClientChildren[]): number[] {
   const shared = members[0]?.shared ?? [];
   return [...shared, ...members.flatMap((member) => member.personal)].sort((a, b) => b - a);
