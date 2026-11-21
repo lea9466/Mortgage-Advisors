@@ -171,6 +171,8 @@ Vercel, באזור Frankfurt (`fra1`) כדי להיות קרוב לבסיס הנ
 
 - [ ] Authentication → URL Configuration: לעדכן את Site URL ואת Redirect URLs לכתובת האמיתית של האתר, ולהגדיר `SITE_URL` ב-Vercel.
 - [ ] Authentication → Emails → SMTP Settings: לחבר שירות מיילים (למשל Resend). בלי זה מייל האישור לא יגיע ליועצים.
+- [ ] להגדיר ב-Vercel את `RESEND_API_KEY` ואת `EMAIL_FROM`. בלי זה "קוד למייל" בכניסה לא יעבוד. בשרת האמיתי הקוד אף פעם לא מודפס, רק נשלח.
+- [ ] לבקש מ-NetFree לאשר את הכתובת של המערכת. מסמכים מוצגים דרך הכתובת שלה, ולקוחות ויועצים רבים גולשים עם NetFree.
 - [ ] Authentication → Attack Protection: להפעיל CAPTCHA ובדיקת סיסמאות שדלפו.
 - [ ] Database → Backups: להפעיל Point in Time Recovery.
 - [ ] Database → Settings: להפעיל Enforce SSL.
