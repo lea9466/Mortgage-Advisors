@@ -50,9 +50,9 @@ export function DocumentsPanel({ caseId, borrowers, documents, editId, trashCoun
 
       {documents.length > 0 && (
         <div className={styles.tools}>
-          <ButtonLink href={`/cases/${caseId}/merge`} variant="secondary">
+          <ButtonLink href={`/cases/${caseId}/pdf-editor`} variant="secondary">
             <Combine aria-hidden="true" className={styles.smallIcon} />
-            איחוד מסמכים או המרה ל-PDF
+            עריכת מסמכים: איחוד, פיצול וסידור דפים
           </ButtonLink>
         </div>
       )}

@@ -61,11 +61,29 @@ export const documentEditSchema = z.object({
   clientId: optionalClient,
 });
 
-export const mergeSchema = z.object({
-  documentIds: z.array(z.uuid()).min(1, "יש לבחור לפחות מסמך אחד").max(30, "אפשר לאחד עד 30 מסמכים בפעם אחת"),
-  title: z.string().trim().min(1, "חסר שם").max(200, "השם ארוך מדי"),
-  category: z.enum(DOCUMENT_CATEGORIES),
+export const MAX_COMPOSE_PAGES = 500;
+export const MAX_COMPOSE_SOURCES = 30;
+export const PAGE_ROTATIONS = [0, 90, 180, 270] as const;
+export type PageRotation = (typeof PAGE_ROTATIONS)[number];
+
+/** One page of a new document: which page of which document, turned by how much. */
+export const composePageSchema = z.object({
+  documentId: z.uuid(),
+  page: z.number().int().min(0).max(9999),
+  rotation: z.literal(PAGE_ROTATIONS),
 });
+
+/** A new PDF built from pages of the case's documents, in order. The sources are never changed. */
+export const composeSchema = z
+  .object({
+    pages: z.array(composePageSchema).min(1, "אין דפים בקובץ החדש").max(MAX_COMPOSE_PAGES, "אפשר עד 500 דפים בקובץ אחד"),
+    title: z.string().trim().min(1, "חסר שם").max(200, "השם ארוך מדי"),
+    category: z.enum(DOCUMENT_CATEGORIES),
+  })
+  .refine((value) => new Set(value.pages.map((page) => page.documentId)).size <= MAX_COMPOSE_SOURCES, {
+    message: "אפשר לקחת דפים מעד 30 מסמכים בקובץ אחד",
+  });
+export type ComposeInput = z.infer<typeof composeSchema>;
 
 /** "חוזה רכישה.pdf" without the extension, as the default document title. */
 export function titleFromFileName(fileName: string): string {

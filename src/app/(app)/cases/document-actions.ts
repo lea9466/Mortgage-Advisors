@@ -7,13 +7,13 @@ import { recordAudit } from "@/lib/audit/log";
 import { requireSession, type SessionContext } from "@/lib/auth/session";
 import { finishUpload, moveDocumentToTrash, startUpload, updateDocument, UploadRejectedError } from "@/lib/cases/documents";
 import { logSystemEvent } from "@/lib/cases/log";
-import { mergeDocuments, PdfToolError } from "@/lib/cases/pdfTools";
+import { composeDocument, PdfToolError } from "@/lib/cases/pdfTools";
 import { createClient } from "@/lib/supabase/server";
 import {
+  composeSchema,
   DOCUMENT_CATEGORY_LABELS,
   documentEditSchema,
   finishUploadSchema,
-  mergeSchema,
   startUploadSchema,
 } from "@/lib/validation/document";
 
@@ -112,54 +112,51 @@ export async function updateDocumentAction(caseId: string, documentId: string, f
   redirect(`/cases/${id.data}?tab=documents`);
 }
 
-export type MergeState = { error?: string };
+export type ComposeResult = { error: string };
 
-const MERGE_REFUSED: Record<PdfToolError["reason"], string> = {
-  "not-found": "אחד המסמכים כבר לא נמצא בתיק. רעננו ונסו שוב",
-  "not-mergeable": "אפשר לאחד רק PDF ותמונות (JPG, PNG). קובצי Office לא נכללים",
-  encrypted: "אחד מקובצי ה-PDF מוגן בסיסמה, ולכן אי אפשר לאחד אותו",
+const COMPOSE_REFUSED: Record<PdfToolError["reason"], string> = {
+  "not-found": "אחד המסמכים כבר לא נמצא בתיק. רעננו את הדף ונסו שוב",
+  "not-mergeable": "אפשר לקחת דפים רק מ-PDF ומתמונות (JPG, PNG). קובצי Office לא נכללים",
+  encrypted: "אחד מקובצי ה-PDF מוגן בסיסמה, ולכן אי אפשר לקחת ממנו דפים",
   unreadable: "אחד הקבצים פגום ולא נפתח",
-  "too-large": "הקובץ המאוחד גדול מ-25MB. נסו לאחד פחות מסמכים",
-  "too-many": "אפשר לאחד עד 30 מסמכים בפעם אחת",
+  "bad-page": "אחד הדפים לא נמצא במסמך המקורי. רעננו את הדף ונסו שוב",
+  "too-large": "הקובץ החדש גדול מ-25MB. נסו פחות דפים",
 };
 
-/** Merges chosen documents (PDFs and pictures), in order, into one new PDF in the case. */
-export async function mergeDocumentsAction(caseId: string, _prev: MergeState, formData: FormData): Promise<MergeState> {
+/**
+ * Saves a new PDF built from pages of the case's documents (merge, split,
+ * reorder, turn pages, or a picture to PDF). The sources stay as they are.
+ */
+export async function composeDocumentAction(caseId: string, input: unknown): Promise<ComposeResult> {
   const session = await requireSession();
   const id = uuid.safeParse(caseId);
   if (!id.success) return { error: GENERIC_ERROR };
-  const parsed = mergeSchema.safeParse({
-    documentIds: formData.getAll("documentId"),
-    title: formData.get("title"),
-    category: formData.get("category"),
-  });
+  const parsed = composeSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC_ERROR };
 
   const supabase = await createClient();
   let documentId: string;
   try {
-    documentId = await mergeDocuments(supabase, context(session), id.data, parsed.data);
+    documentId = await composeDocument(supabase, context(session), id.data, parsed.data);
   } catch (error) {
-    if (error instanceof PdfToolError) return { error: MERGE_REFUSED[error.reason] };
-    console.error("merge failed", error instanceof Error ? error.message : "unknown");
-    return { error: "האיחוד נכשל. נסו שוב בעוד רגע" };
+    if (error instanceof PdfToolError) return { error: COMPOSE_REFUSED[error.reason] };
+    console.error("compose failed", error instanceof Error ? error.message : "unknown");
+    return { error: "השמירה נכשלה. נסו שוב בעוד רגע" };
   }
 
+  const pageCount = parsed.data.pages.length;
+  const sourceCount = new Set(parsed.data.pages.map((page) => page.documentId)).size;
   await recordAudit(supabase, {
     organizationId: session.organization.id,
     actorId: session.user.id,
-    action: "document.merge",
+    action: "document.compose",
     entityType: "document",
     entityId: documentId,
-    metadata: { sources: parsed.data.documentIds.length },
+    metadata: { pages: pageCount, sources: sourceCount },
   });
-  const count = parsed.data.documentIds.length;
-  await logSystemEvent(
-    supabase,
-    context(session),
-    id.data,
-    count === 1 ? `נוצר PDF מתמונה: ${parsed.data.title}` : `נוצר מסמך מאיחוד של ${count} מסמכים: ${parsed.data.title}`,
-  );
+  const pagesText = pageCount === 1 ? "דף אחד" : `${pageCount} דפים`;
+  const sourcesText = sourceCount === 1 ? "ממסמך אחד" : `מ-${sourceCount} מסמכים`;
+  await logSystemEvent(supabase, context(session), id.data, `נוצר מסמך חדש (${pagesText} ${sourcesText}): ${parsed.data.title}`);
   redirect(`/cases/${id.data}?tab=documents`);
 }
 

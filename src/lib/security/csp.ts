@@ -17,6 +17,8 @@ export function buildCsp(nonce: string, isDev: boolean, uploadOrigins: readonly 
     "img-src 'self' blob: data:",
     "font-src 'self'",
     connectSrc,
+    // The pdf.js worker that draws document pages, bundled with the app.
+    "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

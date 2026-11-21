@@ -1,14 +1,13 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PDFDocument } from "pdf-lib";
+import { degrees, PDFDocument, type PDFImage, type PDFPage } from "pdf-lib";
 import { z } from "zod";
 import { buildStorageKey, getStorage, getStorageByName, MAX_FILE_BYTES } from "@/lib/storage";
 import { STORAGE_PROVIDER_NAMES } from "@/lib/storage/types";
-import { DOCUMENT_CATEGORIES, SENSITIVE_CATEGORIES, type DocumentCategory } from "@/lib/validation/document";
+import { DOCUMENT_CATEGORIES, SENSITIVE_CATEGORIES, type ComposeInput, type DocumentCategory, type PageRotation } from "@/lib/validation/document";
 
-export const MAX_MERGE_DOCUMENTS = 30;
-const MAX_MERGE_INPUT_BYTES = 100 * 1024 * 1024;
+const MAX_INPUT_BYTES = 100 * 1024 * 1024;
 /** A4 in PDF points, with a margin around pictures. */
 const A4 = { width: 595.28, height: 841.89 };
 const IMAGE_MARGIN = 24;
@@ -16,7 +15,7 @@ const IMAGE_MARGIN = 24;
 type Context = { organizationId: string; userId: string };
 
 export class PdfToolError extends Error {
-  constructor(readonly reason: "not-found" | "not-mergeable" | "encrypted" | "unreadable" | "too-large" | "too-many") {
+  constructor(readonly reason: "not-found" | "not-mergeable" | "encrypted" | "unreadable" | "bad-page" | "too-large") {
     super(`pdf tool refused: ${reason}`);
     this.name = "PdfToolError";
   }
@@ -33,37 +32,53 @@ const sourceRow = z.object({
 
 const MERGEABLE = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
-/** Adds one picture as its own A4 page, upright or sideways to match the picture, scaled to fit. */
-async function addImagePage(output: PDFDocument, bytes: Uint8Array, contentType: string) {
-  const image = contentType === "image/png" ? await output.embedPng(bytes) : await output.embedJpg(bytes);
+/** Adds a picture as its own A4 page, upright or sideways to match the picture, enlarged or shrunk to fill it. */
+function addImagePage(output: PDFDocument, image: PDFImage): PDFPage {
   const landscape = image.width > image.height;
   const page = output.addPage(landscape ? [A4.height, A4.width] : [A4.width, A4.height]);
   const box = { width: page.getWidth() - IMAGE_MARGIN * 2, height: page.getHeight() - IMAGE_MARGIN * 2 };
-  const scale = Math.min(box.width / image.width, box.height / image.height, 1);
+  // Every picture fills the page up to the margin, so pages of the same direction come out the same size.
+  const scale = Math.min(box.width / image.width, box.height / image.height);
   const width = image.width * scale;
   const height = image.height * scale;
   page.drawImage(image, { x: (page.getWidth() - width) / 2, y: (page.getHeight() - height) / 2, width, height });
+  return page;
 }
 
-export type MergePart = { bytes: Uint8Array; contentType: string };
+export type ComposeSource = { bytes: Uint8Array; contentType: string };
+export type ComposePage = { source: string; page: number; rotation: PageRotation };
 
-/** Builds one PDF from PDFs and pictures, in order. Pure: no storage, no database. */
-export async function buildMergedPdf(parts: MergePart[], title: string): Promise<Uint8Array> {
+async function loadPdf(bytes: Uint8Array): Promise<PDFDocument> {
+  try {
+    return await PDFDocument.load(bytes);
+  } catch (loadError) {
+    const message = loadError instanceof Error ? loadError.message : "";
+    throw new PdfToolError(/encrypt/i.test(message) ? "encrypted" : "unreadable");
+  }
+}
+
+/**
+ * Builds one PDF from chosen pages, in order. A page may come from any source,
+ * more than once, and be turned by a quarter, half or three quarters. A
+ * picture is a source with one page (page 0). Pure: no storage, no database.
+ */
+export async function buildComposedPdf(sources: ReadonlyMap<string, ComposeSource>, pages: readonly ComposePage[], title: string): Promise<Uint8Array> {
   const output = await PDFDocument.create();
-  for (const part of parts) {
-    if (part.contentType === "application/pdf") {
-      let pdf: PDFDocument;
+
+  // Copy each PDF's pages in one go, so fonts and pictures they share are stored once.
+  const copied = new Map<string, PDFPage[]>();
+  const images = new Map<string, PDFImage>();
+  for (const [key, source] of sources) {
+    const wanted = pages.filter((page) => page.source === key).map((page) => page.page);
+    if (wanted.length === 0) continue;
+    if (source.contentType === "application/pdf") {
+      const pdf = await loadPdf(source.bytes);
+      if (wanted.some((index) => index >= pdf.getPageCount())) throw new PdfToolError("bad-page");
+      copied.set(key, await output.copyPages(pdf, wanted));
+    } else if (source.contentType === "image/jpeg" || source.contentType === "image/png") {
+      if (wanted.some((index) => index !== 0)) throw new PdfToolError("bad-page");
       try {
-        pdf = await PDFDocument.load(part.bytes);
-      } catch (loadError) {
-        const message = loadError instanceof Error ? loadError.message : "";
-        throw new PdfToolError(/encrypt/i.test(message) ? "encrypted" : "unreadable");
-      }
-      const pages = await output.copyPages(pdf, pdf.getPageIndices());
-      for (const page of pages) output.addPage(page);
-    } else if (part.contentType === "image/jpeg" || part.contentType === "image/png") {
-      try {
-        await addImagePage(output, part.bytes, part.contentType);
+        images.set(key, source.contentType === "image/png" ? await output.embedPng(source.bytes) : await output.embedJpg(source.bytes));
       } catch {
         throw new PdfToolError("unreadable");
       }
@@ -71,61 +86,67 @@ export async function buildMergedPdf(parts: MergePart[], title: string): Promise
       throw new PdfToolError("not-mergeable");
     }
   }
+
+  for (const entry of pages) {
+    const image = images.get(entry.source);
+    let page: PDFPage | undefined;
+    if (image) page = addImagePage(output, image);
+    else {
+      page = copied.get(entry.source)?.shift();
+      if (page) output.addPage(page);
+    }
+    if (!page) throw new PdfToolError("not-found");
+    if (entry.rotation !== 0) page.setRotation(degrees((page.getRotation().angle + entry.rotation) % 360));
+  }
+
   output.setTitle(title);
   output.setProducer("מערכת המשכנתאות");
-  const merged = await output.save();
-  if (merged.length > MAX_FILE_BYTES) throw new PdfToolError("too-large");
-  return merged;
+  const result = await output.save();
+  if (result.length > MAX_FILE_BYTES) throw new PdfToolError("too-large");
+  return result;
 }
 
 /**
- * Merges documents of a case, in the given order, into one new PDF document.
- * PDF pages are copied as they are; each picture becomes an A4 page. The
- * sources are left untouched. Returns the new document id.
+ * Builds a new document of the case from pages of its documents (merge,
+ * split, reorder, turn, or a picture to PDF: all are one recipe). The sources
+ * are left untouched. Returns the new document id.
  */
-export async function mergeDocuments(
-  supabase: SupabaseClient,
-  context: Context,
-  caseId: string,
-  input: { documentIds: string[]; title: string; category: DocumentCategory },
-): Promise<string> {
-  if (input.documentIds.length === 0 || input.documentIds.length > MAX_MERGE_DOCUMENTS) throw new PdfToolError("too-many");
-
+export async function composeDocument(supabase: SupabaseClient, context: Context, caseId: string, input: ComposeInput): Promise<string> {
+  const ids = [...new Set(input.pages.map((page) => page.documentId))];
   const { data, error } = await supabase
     .from("case_documents")
     .select("id, title, category, client_id, files(storage_provider, storage_key, content_type, size_bytes)")
     .eq("organization_id", context.organizationId)
     .eq("case_id", caseId)
     .is("deleted_at", null)
-    .in("id", input.documentIds);
-  if (error) throw new Error(`merge sources failed: ${error.code}`);
+    .in("id", ids);
+  if (error) throw new Error(`compose sources failed: ${error.code}`);
   const rows = z.array(sourceRow).parse(data ?? []);
-  const sources = input.documentIds.map((id) => rows.find((row) => row.id === id));
-  if (sources.some((source) => !source)) throw new PdfToolError("not-found");
-  const ordered = sources as z.infer<typeof sourceRow>[];
-  if (ordered.some((source) => !MERGEABLE.has(source.files.content_type))) throw new PdfToolError("not-mergeable");
-  if (ordered.reduce((sum, source) => sum + source.files.size_bytes, 0) > MAX_MERGE_INPUT_BYTES) throw new PdfToolError("too-large");
+  if (rows.length !== ids.length) throw new PdfToolError("not-found");
+  if (rows.some((row) => !MERGEABLE.has(row.files.content_type))) throw new PdfToolError("not-mergeable");
+  if (rows.reduce((sum, row) => sum + row.files.size_bytes, 0) > MAX_INPUT_BYTES) throw new PdfToolError("too-large");
 
-  const parts: MergePart[] = [];
-  for (const source of ordered) {
-    parts.push({
-      bytes: await getStorageByName(source.files.storage_provider).get(source.files.storage_key),
-      contentType: source.files.content_type,
-    });
+  const sources = new Map<string, ComposeSource>();
+  for (const row of rows) {
+    sources.set(row.id, { bytes: await getStorageByName(row.files.storage_provider).get(row.files.storage_key), contentType: row.files.content_type });
   }
-  const merged = await buildMergedPdf(parts, input.title);
+  const bytes = await buildComposedPdf(
+    sources,
+    input.pages.map((page) => ({ source: page.documentId, page: page.page, rotation: page.rotation })),
+    input.title,
+  );
 
   // The result belongs to a borrower only when every source belongs to the same one.
-  const owners = new Set(ordered.map((source) => source.client_id));
-  const clientId = owners.size === 1 ? (ordered[0]?.client_id ?? null) : null;
-  const sensitive = SENSITIVE_CATEGORIES.includes(input.category) || ordered.some((source) => SENSITIVE_CATEGORIES.includes(source.category));
+  const owners = new Set(rows.map((row) => row.client_id));
+  const clientId = owners.size === 1 ? (rows[0]?.client_id ?? null) : null;
+  const sensitive = SENSITIVE_CATEGORIES.includes(input.category) || rows.some((row) => SENSITIVE_CATEGORIES.includes(row.category));
 
-  return saveNewPdf(supabase, context, caseId, merged, {
+  return saveNewPdf(supabase, context, caseId, bytes, {
     title: input.title,
     category: input.category,
     clientId,
     sensitive,
-    parentDocumentId: ordered[0]?.id ?? null,
+    parentDocumentId: input.pages[0]?.documentId ?? null,
   });
 }
 
