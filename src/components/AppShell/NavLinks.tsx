@@ -8,12 +8,13 @@ import {
   LayoutDashboard,
   Lightbulb,
   ListChecks,
+  Trash2,
   UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import clsx from "clsx";
-import { NAV_ITEMS, type NavIconName } from "./navigation";
+import { NAV_ITEMS, NAV_SECONDARY_ITEMS, type NavIconName } from "./navigation";
 import styles from "./NavLinks.module.css";
 
 const ICONS: Record<NavIconName, LucideIcon> = {
@@ -24,6 +25,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   leads: UserPlus,
   calendar: CalendarDays,
   insights: Lightbulb,
+  trash: Trash2,
 };
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -37,11 +39,11 @@ export function NavLinks() {
   return (
     <nav aria-label="ניווט ראשי">
       <ul className={styles.list}>
-        {NAV_ITEMS.map((item) => {
+        {[...NAV_ITEMS, ...NAV_SECONDARY_ITEMS].map((item, index) => {
           const Icon = ICONS[item.icon];
           const current = isCurrent(pathname, item.href);
           return (
-            <li key={item.href} className={styles.item}>
+            <li key={item.href} className={clsx(styles.item, index === NAV_ITEMS.length && styles.secondary)}>
               <Link
                 href={item.href}
                 aria-current={current ? "page" : undefined}

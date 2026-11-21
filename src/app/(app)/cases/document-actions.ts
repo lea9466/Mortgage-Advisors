@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
 import { requireSession, type SessionContext } from "@/lib/auth/session";
-import { finishUpload, hideDocument, startUpload, updateDocument, UploadRejectedError } from "@/lib/cases/documents";
+import { finishUpload, moveDocumentToTrash, startUpload, updateDocument, UploadRejectedError } from "@/lib/cases/documents";
 import { logSystemEvent } from "@/lib/cases/log";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -110,7 +110,7 @@ export async function updateDocumentAction(caseId: string, documentId: string, f
   redirect(`/cases/${id.data}?tab=documents`);
 }
 
-/** Removes a document from the case view. The original file is kept. */
+/** Moves a document to the recycle bin. It can be restored from there. */
 export async function hideDocumentAction(caseId: string, formData: FormData): Promise<void> {
   const session = await requireSession();
   const id = uuid.safeParse(caseId);
@@ -119,16 +119,16 @@ export async function hideDocumentAction(caseId: string, formData: FormData): Pr
 
   if (doc.success) {
     const supabase = await createClient();
-    await hideDocument(supabase, session.organization.id, id.data, doc.data);
+    await moveDocumentToTrash(supabase, context(session), id.data, doc.data);
     await recordAudit(supabase, {
       organizationId: session.organization.id,
       actorId: session.user.id,
-      action: "document.hide",
+      action: "document.trash",
       entityType: "document",
       entityId: doc.data,
     });
     const title = formData.get("title");
-    await logSystemEvent(supabase, context(session), id.data, `הוסר מסמך מהתיק${typeof title === "string" ? `: ${title.slice(0, 200)}` : ""}`);
+    await logSystemEvent(supabase, context(session), id.data, `מסמך הועבר לסל המחזור${typeof title === "string" ? `: ${title.slice(0, 200)}` : ""}`);
   }
   redirect(`/cases/${id.data}?tab=documents`);
 }

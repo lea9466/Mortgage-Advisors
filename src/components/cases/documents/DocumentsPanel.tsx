@@ -16,7 +16,14 @@ import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS, formatFileSize } from "@
 import { DocumentUploader } from "./DocumentUploader";
 import styles from "./Documents.module.css";
 
-type DocumentsPanelProps = { caseId: string; borrowers: CaseBorrower[]; documents: CaseDocument[]; editId?: string };
+type DocumentsPanelProps = {
+  caseId: string;
+  borrowers: CaseBorrower[];
+  documents: CaseDocument[];
+  editId?: string;
+  /** How many of this case's documents are in the recycle bin. */
+  trashCount?: number;
+};
 
 const CATEGORY_OPTIONS = DOCUMENT_CATEGORIES.map((value) => ({ value, label: DOCUMENT_CATEGORY_LABELS[value] }));
 
@@ -27,7 +34,7 @@ function Icon({ contentType }: { contentType: string }) {
 }
 
 /** The documents of a case by category, with upload, view, download, rename and remove. */
-export function DocumentsPanel({ caseId, borrowers, documents, editId }: DocumentsPanelProps) {
+export function DocumentsPanel({ caseId, borrowers, documents, editId, trashCount = 0 }: DocumentsPanelProps) {
   const options = borrowers.map((borrower) => ({ value: borrower.id, label: `${borrower.first_name} ${borrower.last_name}` }));
   const nameOf = (clientId: string | null) => options.find((option) => option.value === clientId)?.label;
   const tabHref = `/cases/${caseId}?tab=documents`;
@@ -104,8 +111,15 @@ export function DocumentsPanel({ caseId, borrowers, documents, editId }: Documen
           );
         })
       )}
+      {trashCount > 0 && (
+        <p className={styles.note}>
+          <Link href={`/trash?case=${caseId}`}>
+            {trashCount === 1 ? "מסמך אחד" : `${trashCount} מסמכים`} מהתיק הזה בסל המחזור
+          </Link>
+        </p>
+      )}
       <p className={styles.note}>
-        הסרה מוציאה את המסמך מהתיק, אבל הקובץ המקורי נשמר. כל צפייה והורדה נרשמת ביומן הפעולות.
+        הסרה מעבירה את המסמך לסל המחזור, ומשם אפשר לשחזר אותו או למחוק לצמיתות. כל צפייה והורדה נרשמת ביומן הפעולות.
       </p>
     </div>
   );

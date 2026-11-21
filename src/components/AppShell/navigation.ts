@@ -8,5 +8,8 @@ export const NAV_ITEMS = [
   { href: "/insights", label: "מרכז התובנות", icon: "insights" },
 ] as const;
 
-export type NavItem = (typeof NAV_ITEMS)[number];
+/** Shown at the bottom of the menu, apart from the work areas. */
+export const NAV_SECONDARY_ITEMS = [{ href: "/trash", label: "סל מחזור", icon: "trash" }] as const;
+
+export type NavItem = (typeof NAV_ITEMS)[number] | (typeof NAV_SECONDARY_ITEMS)[number];
 export type NavIconName = NavItem["icon"];

@@ -238,13 +238,30 @@ export async function updateDocument(
   if (fileError) throw new Error(`file update failed: ${fileError.code}`);
 }
 
-/** Hides a document from the case. The file itself is kept. */
-export async function hideDocument(supabase: SupabaseClient, organizationId: string, caseId: string, documentId: string) {
-  const { error } = await supabase
+/** Moves a document to the recycle bin. Its file is kept until deleted permanently from the bin. */
+export async function moveDocumentToTrash(
+  supabase: SupabaseClient,
+  context: Context,
+  caseId: string,
+  documentId: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
     .from("case_documents")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now, deleted_by: context.userId })
     .eq("id", documentId)
     .eq("case_id", caseId)
-    .eq("organization_id", organizationId);
-  if (error) throw new Error(`document hide failed: ${error.code}`);
+    .eq("organization_id", context.organizationId)
+    .is("deleted_at", null)
+    .select("file_id")
+    .maybeSingle();
+  if (error) throw new Error(`document trash failed: ${error.code}`);
+  if (!data) return;
+  const fileId = z.object({ file_id: z.uuid() }).parse(data).file_id;
+  const { error: fileError } = await supabase
+    .from("files")
+    .update({ deleted_at: now })
+    .eq("id", fileId)
+    .eq("organization_id", context.organizationId);
+  if (fileError) throw new Error(`file trash failed: ${fileError.code}`);
 }

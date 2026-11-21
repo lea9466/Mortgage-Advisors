@@ -5,6 +5,7 @@ import { BorrowersPanel } from "@/components/cases/BorrowersPanel";
 import { CaseLog } from "@/components/cases/CaseLog";
 import { DocumentsPanel } from "@/components/cases/documents/DocumentsPanel";
 import { listDocuments } from "@/lib/cases/documents";
+import { countTrashForCase } from "@/lib/cases/trash";
 import { BankAccountPanel, IncomePanel, LiabilityPanel } from "@/components/cases/finance/FinancePanels";
 import { CaseStats } from "@/components/cases/CaseStats";
 import { CASE_TABS, CaseTabs, type CaseTabId } from "@/components/cases/CaseTabs";
@@ -63,7 +64,13 @@ export default async function CasePage({
     getChildrenOf(supabase, session.organization.id, borrowerIds),
     findPreviousIncomes(supabase, session.organization.id, record.id, borrowerIds),
   ]);
-  const documents = tab === "documents" ? await listDocuments(supabase, session.organization.id, record.id) : [];
+  const [documents, trashCount] =
+    tab === "documents"
+      ? await Promise.all([
+          listDocuments(supabase, session.organization.id, record.id),
+          countTrashForCase(supabase, session.organization.id, record.id),
+        ])
+      : [[], 0];
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
   const later = LATER[tab];
@@ -120,7 +127,7 @@ export default async function CasePage({
               <LiabilityPanel caseId={record.id} borrowers={borrowers} rows={finances.liabilities} editId={edit} />
             )}
             {tab === "documents" && (
-              <DocumentsPanel caseId={record.id} borrowers={borrowers} documents={documents} editId={edit} />
+              <DocumentsPanel caseId={record.id} borrowers={borrowers} documents={documents} editId={edit} trashCount={trashCount} />
             )}
             {tab === "bank" && (
               <BankAccountPanel caseId={record.id} borrowers={borrowers} rows={finances.accounts} editId={edit} />
