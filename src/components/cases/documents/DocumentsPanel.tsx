@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileImage, FileSpreadsheet, FileText, ShieldAlert } from "lucide-react";
+import { Combine, FileImage, FileSpreadsheet, FileText, ShieldAlert } from "lucide-react";
 import {
   finishUploadAction,
   hideDocumentAction,
@@ -47,6 +47,15 @@ export function DocumentsPanel({ caseId, borrowers, documents, editId, trashCoun
         start={startUploadAction.bind(null, caseId)}
         finish={finishUploadAction.bind(null, caseId)}
       />
+
+      {documents.length > 0 && (
+        <div className={styles.tools}>
+          <ButtonLink href={`/cases/${caseId}/merge`} variant="secondary">
+            <Combine aria-hidden="true" className={styles.smallIcon} />
+            איחוד מסמכים או המרה ל-PDF
+          </ButtonLink>
+        </div>
+      )}
 
       {documents.length === 0 ? (
         <p className={styles.empty}>עדיין לא הועלו מסמכים לתיק.</p>

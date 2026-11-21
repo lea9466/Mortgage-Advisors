@@ -63,6 +63,8 @@
 .progress { flex-basis: 100%; inline-size: 100%; block-size: 0.25rem; accent-color: var(--color-primary); }
 .uploadActions { display: flex; }
 
+.tools { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
 /* List */
 .empty {
   padding: var(--space-8) var(--space-6);

@@ -61,6 +61,12 @@ export const documentEditSchema = z.object({
   clientId: optionalClient,
 });
 
+export const mergeSchema = z.object({
+  documentIds: z.array(z.uuid()).min(1, "יש לבחור לפחות מסמך אחד").max(30, "אפשר לאחד עד 30 מסמכים בפעם אחת"),
+  title: z.string().trim().min(1, "חסר שם").max(200, "השם ארוך מדי"),
+  category: z.enum(DOCUMENT_CATEGORIES),
+});
+
 /** "חוזה רכישה.pdf" without the extension, as the default document title. */
 export function titleFromFileName(fileName: string): string {
   const base = fileName.replace(/\.[A-Za-z0-9]{1,5}$/, "").trim();
