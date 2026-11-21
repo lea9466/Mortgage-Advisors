@@ -5,15 +5,18 @@ import { verifyMfaCodeAction, type FormState } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/Button";
 import { FormMessage } from "@/components/ui/FormMessage";
 import { TextField } from "@/components/ui/TextField";
+import { RememberDevice } from "./RememberDevice";
 
 const initialState: FormState = {};
 
 type MfaCodeFormProps = {
   factorId: string;
   submitLabel: string;
+  /** Offer "remember this computer" (on sign-in, not while setting the app up). */
+  showRemember?: boolean;
 };
 
-export function MfaCodeForm({ factorId, submitLabel }: MfaCodeFormProps) {
+export function MfaCodeForm({ factorId, submitLabel, showRemember = false }: MfaCodeFormProps) {
   const [state, formAction, isPending] = useActionState(verifyMfaCodeAction, initialState);
 
   return (
@@ -31,6 +34,7 @@ export function MfaCodeForm({ factorId, submitLabel }: MfaCodeFormProps) {
         required
         ltr
       />
+      {showRemember && <RememberDevice />}
       <FormMessage message={state.error} />
       <Button type="submit" disabled={isPending}>
         {isPending ? "בודק..." : submitLabel}

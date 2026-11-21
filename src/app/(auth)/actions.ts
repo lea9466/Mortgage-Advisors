@@ -1,8 +1,17 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
+import {
+  getSessionClaims,
+  rememberThisDevice,
+  SecondFactorError,
+  sendEmailCode,
+  tryTrustedDevice,
+  verifyEmailCode,
+} from "@/lib/auth/secondFactor";
 import { findMembership, getAuthStage } from "@/lib/auth/session";
 import { getEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +23,9 @@ import {
 } from "@/lib/validation/auth";
 
 export type FormState = { error?: string };
+export type EmailCodeState = { sent?: boolean; error?: string };
+
+const emailCodeSchema = z.string().trim().regex(/^\d{6}$/);
 
 export type SignupState = {
   error?: string;
@@ -42,7 +54,79 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: "כתובת האימייל או הסיסמה שגויים" };
 
+  // A computer remembered after an earlier code skips the second step.
+  const claims = await getSessionClaims(supabase);
+  if (claims && (await tryTrustedDevice(claims))) {
+    await auditSignIn(supabase, claims.userId, "trusted_device");
+    redirect("/");
+  }
   redirect("/mfa/verify");
+}
+
+async function auditSignIn(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, method: string) {
+  const membership = await findMembership(supabase, userId);
+  if (membership) {
+    await recordAudit(supabase, {
+      organizationId: membership.organization.id,
+      actorId: userId,
+      action: "auth.sign_in",
+      metadata: { method },
+    });
+  }
+}
+
+/** A short label for a remembered computer, e.g. "Chrome · Windows". */
+async function deviceLabel(): Promise<string> {
+  const agent = (await headers()).get("user-agent") ?? "";
+  const browser = /Edg\//.test(agent) ? "Edge" : /Chrome\//.test(agent) ? "Chrome" : /Firefox\//.test(agent) ? "Firefox" : /Safari\//.test(agent) ? "Safari" : "דפדפן";
+  const system = /Windows/.test(agent) ? "Windows" : /Mac OS/.test(agent) ? "Mac" : /Android/.test(agent) ? "Android" : /iPhone|iPad/.test(agent) ? "iOS" : "";
+  return system ? `${browser} · ${system}` : browser;
+}
+
+/** Sends a sign-in code to the user's email. */
+export async function sendEmailCodeAction(_prev: EmailCodeState): Promise<EmailCodeState> {
+  const supabase = await createClient();
+  const claims = await getSessionClaims(supabase);
+  if (!claims) redirect("/login");
+  try {
+    await sendEmailCode(claims);
+    return { sent: true };
+  } catch (error) {
+    if (error instanceof SecondFactorError && error.reason === "too-soon") return { sent: true, error: "קוד נשלח לפני פחות מדקה. בדקו את המייל, או המתינו ושלחו שוב" };
+    if (error instanceof SecondFactorError && error.reason === "too-many") return { error: "נשלחו יותר מדי קודים בשעה האחרונה. נסו שוב מאוחר יותר, או השתמשו באפליקציה" };
+    console.error("email code send failed", error instanceof Error ? error.message : "unknown");
+    return { error: GENERIC_ERROR };
+  }
+}
+
+/** Checks the emailed code and completes the second step for this sign-in. */
+export async function verifyEmailCodeAction(_prev: EmailCodeState, formData: FormData): Promise<EmailCodeState> {
+  const code = emailCodeSchema.safeParse(formData.get("emailCode"));
+  if (!code.success) return { sent: true, error: "יש להזין את הקוד בן 6 הספרות מהמייל" };
+
+  const supabase = await createClient();
+  const claims = await getSessionClaims(supabase);
+  if (!claims) redirect("/login");
+  try {
+    await verifyEmailCode(claims, code.data);
+  } catch (error) {
+    if (error instanceof SecondFactorError) {
+      const messages: Record<SecondFactorError["reason"], string> = {
+        wrong: "הקוד שגוי. בדקו ונסו שוב",
+        locked: "יותר מדי ניסיונות. שלחו קוד חדש",
+        expired: "פג תוקף הקוד. שלחו קוד חדש",
+        "no-code": "לא נשלח קוד. לחצו על שליחת קוד",
+        "too-soon": GENERIC_ERROR,
+        "too-many": GENERIC_ERROR,
+      };
+      return { sent: true, error: messages[error.reason] };
+    }
+    console.error("email code verify failed", error instanceof Error ? error.message : "unknown");
+    return { sent: true, error: GENERIC_ERROR };
+  }
+  if (formData.get("remember") === "on") await rememberThisDevice(claims, await deviceLabel());
+  await auditSignIn(supabase, claims.userId, "email");
+  redirect("/");
 }
 
 /**
@@ -149,13 +233,10 @@ export async function verifyMfaCodeAction(_prev: FormState, formData: FormData):
   const { error } = await supabase.auth.mfa.challengeAndVerify(parsed.data);
   if (error) return { error: "הקוד שגוי או שפג תוקפו. נסו שוב עם קוד חדש" };
 
-  const membership = await findMembership(supabase, userData.user.id);
-  if (membership) {
-    await recordAudit(supabase, {
-      organizationId: membership.organization.id,
-      actorId: userData.user.id,
-      action: "auth.sign_in",
-    });
+  if (formData.get("remember") === "on") {
+    const claims = await getSessionClaims(supabase);
+    if (claims) await rememberThisDevice(claims, await deviceLabel());
   }
+  await auditSignIn(supabase, userData.user.id, "app");
   redirect("/");
 }

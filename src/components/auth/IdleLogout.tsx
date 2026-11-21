@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { logoutAction } from "@/app/(auth)/actions";
 
-const IDLE_LIMIT_MS = 30 * 60 * 1000;
+const IDLE_LIMIT_MS = 4 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 30 * 1000;
 const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll", "visibilitychange"] as const;
 
 /**
- * Signs the user out after 30 minutes without activity, so an unattended
+ * Signs the user out after 4 hours without activity, so an unattended
  * computer does not stay logged in. Renders nothing.
  */
 export function IdleLogout() {

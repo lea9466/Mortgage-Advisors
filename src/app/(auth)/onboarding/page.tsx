@@ -13,8 +13,7 @@ export default async function OnboardingPage() {
   const auth = await getAuthStage(supabase);
 
   if (auth.stage === "signed-out") redirect("/login");
-  if (auth.stage === "needs-mfa-enrollment") redirect("/mfa/enroll");
-  if (auth.stage === "needs-mfa-verification") redirect("/mfa/verify");
+  if (auth.stage === "needs-second-step") redirect("/mfa/verify");
   if (await findMembership(supabase, auth.userId)) redirect("/");
 
   return (

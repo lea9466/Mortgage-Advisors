@@ -49,25 +49,22 @@ export async function findMembership(
 
 export type AuthStage =
   | { stage: "signed-out" }
-  | { stage: "needs-mfa-enrollment"; userId: string }
-  | { stage: "needs-mfa-verification"; userId: string }
+  | { stage: "needs-second-step"; userId: string }
   | { stage: "verified"; userId: string; email: string };
 
-/** Where the current visitor is in the sign-in flow. Always checked on the server. */
+/**
+ * Where the current visitor is in the sign-in flow. Always checked on the
+ * server. The second step is done when the database rule has_mfa() says so:
+ * an authenticator-app code, an email code, or a remembered computer.
+ */
 export async function getAuthStage(supabase: SupabaseClient): Promise<AuthStage> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return { stage: "signed-out" };
   const user = userData.user;
 
-  const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aalError || !aal) return { stage: "signed-out" };
-
-  if (aal.currentLevel === "aal2") {
-    return { stage: "verified", userId: user.id, email: user.email ?? "" };
-  }
-  return aal.nextLevel === "aal2"
-    ? { stage: "needs-mfa-verification", userId: user.id }
-    : { stage: "needs-mfa-enrollment", userId: user.id };
+  const { data: done, error } = await supabase.rpc("has_mfa");
+  if (!error && done === true) return { stage: "verified", userId: user.id, email: user.email ?? "" };
+  return { stage: "needs-second-step", userId: user.id };
 }
 
 /**
@@ -80,8 +77,7 @@ export const requireSession = cache(async (): Promise<SessionContext> => {
   const auth = await getAuthStage(supabase);
 
   if (auth.stage === "signed-out") redirect("/login");
-  if (auth.stage === "needs-mfa-enrollment") redirect("/mfa/enroll");
-  if (auth.stage === "needs-mfa-verification") redirect("/mfa/verify");
+  if (auth.stage === "needs-second-step") redirect("/mfa/verify");
 
   const membership = await findMembership(supabase, auth.userId);
   if (!membership) redirect("/onboarding");

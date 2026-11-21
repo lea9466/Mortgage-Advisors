@@ -18,6 +18,9 @@ const envSchema = z.object({
   LOCAL_STORAGE_DIR: z.string().trim().min(1).default(".storage"),
   FILE_URL_SIGNING_KEY: optionalString,
   FIELD_ENCRYPTION_KEY: optionalString,
+  /** Email through Resend. Without it, development prints emails to the terminal. */
+  RESEND_API_KEY: optionalString,
+  EMAIL_FROM: z.string().trim().min(3).default("מערכת המשכנתאות <onboarding@resend.dev>"),
   BLIND_INDEX_KEY: optionalString,
 });
 

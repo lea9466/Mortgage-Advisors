@@ -1,28 +1,28 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/AuthCard/AuthCard";
-import { LogoutButton } from "@/components/auth/LogoutButton";
 import { MfaEnrollment } from "@/components/auth/MfaEnrollment";
-import { getAuthStage } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "הגדרת אימות דו-שלבי" };
+export const metadata: Metadata = { title: "הגדרת אפליקציית אימות" };
 
+/** Optional: set up an authenticator app. A code by email works without it. */
 export default async function MfaEnrollPage() {
   const supabase = await createClient();
-  const auth = await getAuthStage(supabase);
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/login");
 
-  if (auth.stage === "signed-out") redirect("/login");
-  if (auth.stage === "verified") redirect("/");
-  if (auth.stage === "needs-mfa-verification") redirect("/mfa/verify");
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  if (factors?.totp.some((factor) => factor.status === "verified")) redirect("/mfa/verify");
 
   return (
     <AuthCard
-      title="הגדרת אימות דו-שלבי"
-      description="המערכת שומרת מידע רגיש, ולכן הכניסה אליה דורשת גם קוד מהטלפון. ההגדרה נעשית פעם אחת."
+      title="הגדרת אפליקציית אימות"
+      description="סורקים פעם אחת, ומאז אפשר להיכנס עם קוד מהאפליקציה. אפשר גם להמשיך עם קוד למייל בלבד."
     >
       <MfaEnrollment />
-      <LogoutButton variant="secondary" />
+      <Link href="/mfa/verify">חזרה, בלי להגדיר אפליקציה</Link>
     </AuthCard>
   );
 }

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (parsed.success) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(parsed.data);
-    if (!error) return NextResponse.redirect(new URL("/mfa/enroll", request.url));
+    if (!error) return NextResponse.redirect(new URL("/mfa/verify", request.url));
     console.error("email confirmation failed", error.code);
   }
 
