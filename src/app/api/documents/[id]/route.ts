@@ -10,6 +10,26 @@ import { extensionFor } from "@/lib/validation/document";
 
 const status = (code: number) => new NextResponse(null, { status: code });
 
+const CHUNK_BYTES = 1024 * 1024;
+
+/**
+ * The file as a stream, in 1MB pieces. Hosts such as Vercel cap a plain
+ * response at 4.5MB but not a streamed one, and documents can be up to 25MB.
+ */
+function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  let offset = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (offset >= bytes.length) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(bytes.subarray(offset, offset + CHUNK_BYTES));
+      offset += CHUNK_BYTES;
+    },
+  });
+}
+
 /** Types a browser can show by itself. Office files are always downloaded. */
 const VIEWABLE = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
@@ -46,7 +66,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const contentType = document.files.content_type;
     const inline = !download && VIEWABLE.has(contentType);
     const fileName = `${document.title}.${extensionFor(contentType)}`;
-    return new NextResponse(Buffer.from(body), {
+    return new NextResponse(streamOf(body), {
       headers: {
         "Content-Type": contentType,
         "Content-Length": String(body.length),

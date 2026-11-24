@@ -152,7 +152,30 @@ npm test            # בדיקות יחידה
 
 ## פריסה
 
-Vercel, באזור Frankfurt (`fra1`) כדי להיות קרוב לבסיס הנתונים. את משתני הסביבה מגדירים ב-Project Settings → Environment Variables, בנפרד לסביבת Preview ולסביבת Production.
+Vercel, באזור Frankfurt (`fra1`, מוגדר ב-`vercel.json`) כדי להיות קרוב לבסיס הנתונים. את משתני הסביבה מגדירים ב-Project Settings → Environment Variables, בנפרד לסביבת Preview ולסביבת Production. אחרי כל שינוי במשתנים צריך פריסה מחדש (Deployments → ⋯ → Redeploy).
+
+### המשתנים ב-Vercel
+
+| משתנה | מה לשים | מאיפה |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | כמו ב-`.env.local` | Supabase → Project Settings → API |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | כמו ב-`.env.local` | אותו מקום |
+| `SUPABASE_SECRET_KEY` | כמו ב-`.env.local`. סודי | אותו מקום |
+| `FIELD_ENCRYPTION_KEY` | **בדיוק** כמו ב-`.env.local`. סודי | `.env.local` |
+| `BLIND_INDEX_KEY` | **בדיוק** כמו ב-`.env.local`. סודי | `.env.local` |
+| `SITE_URL` | הכתובת של האתר, למשל `https://mortgage-advisors-crm.vercel.app`, בלי `/` בסוף | Vercel → Domains |
+| `STORAGE_PROVIDER` | `supabase` | - |
+| `STORAGE_BUCKET` | `case-files` | - |
+| `RESEND_API_KEY`, `EMAIL_FROM` | לא חובה לניסיון. בלעדיהם "קוד למייל" בכניסה לא עובד, ואפליקציית האימות עובדת | resend.com |
+
+לא מגדירים ב-Vercel את `FILE_URL_SIGNING_KEY` ואת `LOCAL_STORAGE_DIR`: הם לאחסון המקומי בפיתוח בלבד. מסמכים שהועלו במחשב המקומי (`.storage`) לא ייפתחו באתר.
+
+כל עוד הפיתוח והאתר עובדים מול אותו פרויקט Supabase, מפתחות ההצפנה חייבים להיות זהים בשניהם.
+
+### הגדרות ב-Supabase לכתובת החדשה
+
+- Authentication → URL Configuration: ב-Site URL לשים את כתובת האתר. ב-Redirect URLs להוסיף `https://<הכתובת>/auth/callback` (ולהשאיר את `http://localhost:3000/auth/callback` לפיתוח).
+- Authentication → Emails → SMTP Settings: שרת המיילים המובנה של Supabase שולח רק לחברי הצוות של הפרויקט, ולכן מייל האישור לא יגיע ליועץ. לניסיון אפשר לחבר Gmail: חשבון Gmail עם אימות דו-שלבי וסיסמת אפליקציה, Host `smtp.gmail.com`, Port `465`.
 
 ## לפני העלייה לאוויר
 
