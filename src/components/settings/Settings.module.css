@@ -1,0 +1,53 @@
+.page { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-inline-size: 48rem;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.cardHeader { display: flex; flex-direction: column; gap: var(--space-2); }
+.cardTitle { font-size: var(--text-lg); }
+.explain { font-size: var(--text-sm); color: var(--color-text-muted); }
+.listTitle { margin-block-start: var(--space-2); font-size: var(--text-base); }
+
+.list { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; list-style: none; }
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.itemText { display: flex; flex-direction: column; min-inline-size: 0; }
+.itemTitle { font-weight: 600; overflow-wrap: anywhere; }
+.itemMeta { font-size: var(--text-sm); color: var(--color-text-muted); }
+.remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-height);
+  block-size: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  background: transparent;
+}
+.remove svg { inline-size: 1.125rem; block-size: 1.125rem; }
+.remove:hover { color: var(--color-error); background: var(--color-error-soft); }
+
+.addForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-4); }
+.addForm > :first-child { flex: 2 1 16rem; min-inline-size: 0; }
+.addForm > :nth-child(2) { flex: 1 1 10rem; min-inline-size: 0; }
+.addForm > :last-child { flex-basis: 100%; }
+.scope { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: 0; border: 0; }
+.legend { flex-basis: 100%; margin-block-end: var(--space-1); font-size: var(--text-sm); font-weight: 600; }
+.radio { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--control-height); }
+.addActions { display: flex; }

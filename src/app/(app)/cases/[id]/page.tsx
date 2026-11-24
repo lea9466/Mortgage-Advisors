@@ -4,7 +4,9 @@ import { z } from "zod";
 import { BorrowersPanel } from "@/components/cases/BorrowersPanel";
 import { CaseLog } from "@/components/cases/CaseLog";
 import { DocumentsPanel } from "@/components/cases/documents/DocumentsPanel";
+import { RequirementsPanel } from "@/components/cases/requirements/RequirementsPanel";
 import { listDocuments } from "@/lib/cases/documents";
+import { getCaseRequirements } from "@/lib/cases/requirements";
 import { countTrashForCase } from "@/lib/cases/trash";
 import { BankAccountPanel, IncomePanel, LiabilityPanel } from "@/components/cases/finance/FinancePanels";
 import { CaseStats } from "@/components/cases/CaseStats";
@@ -22,7 +24,7 @@ import { getChildrenOf } from "@/lib/clients/family";
 import { listLog } from "@/lib/cases/log";
 import { formatAmountInput } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { formatCaseNumber, logSearchSchema, type CaseDetailsFormValues } from "@/lib/validation/case";
+import { CLOSED_STAGES, formatCaseNumber, logSearchSchema, type CaseDetailsFormValues } from "@/lib/validation/case";
 import { createInsightAction, createLogEntryAction, updateCaseDetailsAction } from "../actions";
 import styles from "./case.module.css";
 
@@ -64,13 +66,18 @@ export default async function CasePage({
     getChildrenOf(supabase, session.organization.id, borrowerIds),
     findPreviousIncomes(supabase, session.organization.id, record.id, borrowerIds),
   ]);
-  const [documents, trashCount] =
+  const [documents, trashCount, requirements] =
     tab === "documents"
       ? await Promise.all([
           listDocuments(supabase, session.organization.id, record.id),
           countTrashForCase(supabase, session.organization.id, record.id),
+          // An open case picks up items it does not have yet (a new borrower, or items added in the settings).
+          getCaseRequirements(supabase, { organizationId: session.organization.id, userId: session.user.id }, record.id, {
+            borrowerIds,
+            addMissing: !CLOSED_STAGES.includes(record.stage),
+          }),
         ])
-      : [[], 0];
+      : [[], 0, []];
 
   const borrowers = record.case_borrowers.map((link) => link.clients);
   const later = LATER[tab];
@@ -127,7 +134,15 @@ export default async function CasePage({
               <LiabilityPanel caseId={record.id} borrowers={borrowers} rows={finances.liabilities} editId={edit} />
             )}
             {tab === "documents" && (
-              <DocumentsPanel caseId={record.id} borrowers={borrowers} documents={documents} editId={edit} trashCount={trashCount} />
+              <>
+                <RequirementsPanel
+                  caseId={record.id}
+                  borrowers={borrowers.map((borrower) => ({ value: borrower.id, label: `${borrower.first_name} ${borrower.last_name}` }))}
+                  requirements={requirements}
+                  documents={documents.map((document) => ({ id: document.id, title: document.title }))}
+                />
+                <DocumentsPanel caseId={record.id} borrowers={borrowers} documents={documents} editId={edit} trashCount={trashCount} />
+              </>
             )}
             {tab === "bank" && (
               <BankAccountPanel caseId={record.id} borrowers={borrowers} rows={finances.accounts} editId={edit} />

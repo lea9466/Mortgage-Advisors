@@ -9,7 +9,10 @@ export const NAV_ITEMS = [
 ] as const;
 
 /** Shown at the bottom of the menu, apart from the work areas. */
-export const NAV_SECONDARY_ITEMS = [{ href: "/trash", label: "סל מחזור", icon: "trash" }] as const;
+export const NAV_SECONDARY_ITEMS = [
+  { href: "/trash", label: "סל מחזור", icon: "trash" },
+  { href: "/settings", label: "הגדרות", icon: "settings" },
+] as const;
 
 export type NavItem = (typeof NAV_ITEMS)[number] | (typeof NAV_SECONDARY_ITEMS)[number];
 export type NavIconName = NavItem["icon"];

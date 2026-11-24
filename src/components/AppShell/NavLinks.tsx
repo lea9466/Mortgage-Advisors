@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   ListChecks,
+  Settings,
   Trash2,
   UserPlus,
   Users,
@@ -26,6 +27,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   calendar: CalendarDays,
   insights: Lightbulb,
   trash: Trash2,
+  settings: Settings,
 };
 
 function isCurrent(pathname: string, href: string): boolean {

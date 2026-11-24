@@ -4,8 +4,11 @@
   overflow-x: auto;
   padding: var(--space-2) var(--space-4) 0;
   border-block-end: 1px solid var(--color-border);
+  /* The tabs still scroll sideways on a narrow screen, but the bar shows only while the pointer is over them. */
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
+.tabs:hover { scrollbar-color: var(--color-border) transparent; }
 
 .tab {
   flex: none;
